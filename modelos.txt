@@ -1,0 +1,34 @@
+Modelos de Machine Learning identificados:
+
+1. Modelos Lineales y Regularizados:
+   - Regresión Lineal (Simple y Múltiple)
+   - Regresión Ridge (L2)
+   - Regresión Lasso (L1)
+   - Regresión de Red Elástica (Elastic Net)
+   - Regresión Logística (Clasificación)
+   - Regresión Polinomial
+   - LDA (Linear Discriminant Analysis)
+
+2. Modelos Basados en Instancia (Vecindad):
+   - KNN (K-Nearest Neighbors) - Clasificación
+   - KNN (K-Nearest Neighbors) - Regresión
+
+3. Modelos Probabilísticos:
+   - Naive Bayes (Bernoulli, Multinomial, Gaussian)
+
+4. Modelos de Árboles y Ensamble (CART):
+   - Árbol de Regresión
+   - Árbol de Clasificación
+   - Random Forest (Bosques Aleatorios)
+   - XGBoost (Extreme Gradient Boosting)
+
+5. Máquinas de Soporte Vectorial:
+   - SVM (Support Vector Machines) - Clasificación
+   - SVR (Support Vector Regression) - Regresión
+
+6. Redes Neuronales y Aprendizaje Profundo:
+   - Redes Neuronales Artificiales (Perceptrón Multicapa - MLP)
+
+7. Variantes y Optimización:
+   - ElasticNetCV (Validación Cruzada)
+   - Búsqueda de K óptimo para KNN
