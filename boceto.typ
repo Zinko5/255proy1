@@ -1,15 +1,15 @@
-#import "/utiles/typst/plantillas/caratulaPlantillaT.typ": *
+// #import "/utiles/typst/plantillas/caratulaPlantillaT.typ": *
 
-#import "/utiles/typst/plantillas/apuntesPlantillaT.typ": *
-#show: config
+// #import "/utiles/typst/plantillas/apuntesPlantillaT.typ": *
+// #show: config
 
-#caratula(
-  "Boceto 2",
-  "DAT 255",
-  "M. Sc. Menfy Morales Ríos",
-  "Gabriel Marcelo Muñoz Callisaya",
-  datetime(year: 2026, month: 03, day: 24),
-)
+// #caratula(
+//   "Boceto 2",
+//   "DAT 255",
+//   "M. Sc. Menfy Morales Ríos",
+//   "Gabriel Marcelo Muñoz Callisaya",
+//   datetime(year: 2026, month: 03, day: 24),
+// )
 
 #outline()
 
@@ -17,7 +17,11 @@
 
 = Introducción
 
-Análisis de datos de partidas de League of Legends, para realizar predicciones de distintas variables del juego y así poder entender mejor el comportamiento del juego. Útil para jugadores, equipos y analistas que quieran mejorar su rendimiento en el juego.
+El presente documento detalla el desarrollo de un proyecto de análisis de datos enfocado en el videojuego League of Legends (LoL). El objetivo principal es transformar un conjunto de datos masivo y complejo, proveniente de partidas competitivas, en información estructurada y modelos predictivos accionables. Para lograrlo, se implementa una metodología rigurosa de Ciencia de Datos, aplicando técnicas avanzadas de preprocesamiento, modelado estadístico y aprendizaje automático (Machine Learning).
+
+El proyecto aborda la necesidad de extraer patrones significativos de un entorno dinámico y de alta dimensionalidad, donde las interacciones entre múltiples variables (kills, oro, visión, objetivos) determinan el resultado final. Se utilizan diversos algoritmos, desde modelos lineales hasta redes neuronales, para evaluar diferentes enfoques de predicción y seleccionar el más robusto.
+
+El resultado es una plataforma analítica que no solo describe el comportamiento del juego, sino que permite predecir resultados con un alto grado de precisión y ofrecer recomendaciones basadas en evidencia empírica. Este enfoque es fundamental para jugadores, entrenadores y analistas que buscan optimizar su rendimiento y tomar decisiones estratégicas fundamentadas en datos.
 
 = Antecedentes
 
