@@ -14,6 +14,7 @@ Este documento describe las variables contenidas en el archivo `league_data.csv`
 | `kills` | Cantidad total de campeones enemigos asesinados por el jugador | Integer |
 | `deaths` | Cantidad total de veces que el jugador fue asesinado | Integer |
 | `assists` | Cantidad de asistencias en asesinatos realizados por el equipo | Integer |
+| `totalMinionsKilled` | Cantidad total de súbditos (minions) eliminados por el jugador | Integer |
 | `goldEarned` | Total de oro acumulado durante el transcurso de la partida | Integer |
 | `timePlayed` | Duración de la partida para el jugador expresada en segundos | Integer |
 | `visionScore` | Puntuación que mide la contribución a la visión del mapa (centinelas, destrucción, etc.) | Integer |
@@ -34,3 +35,6 @@ Este documento describe las variables contenidas en el archivo `league_data.csv`
 | `challenge_laningPhaseGoldExpAdvantage` | Ventaja de recursos (oro/experiencia) obtenida frente al oponente directo en fase de líneas | Float |
 | `challenge_teamDamagePercentage` | Proporción del daño total del equipo que fue infligido por el jugador | Float |
 | `totalPings` | Cantidad total de señales de comunicación emitidas por el jugador | Integer |
+
+---
+**League Learning** isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.

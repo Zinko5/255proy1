@@ -1,3 +1,7 @@
+import os
+# Silenciar logs de TensorFlow/CUDA antes de importar
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,16 +14,21 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from xgboost import XGBClassifier
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.layers import Dense, Dropout, Input
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score, roc_curve
-import os
+import warnings
+import logging
+
+# Silenciar advertencias de bibliotecas
+warnings.filterwarnings('ignore')
+logging.getLogger('tensorflow').setLevel(logging.ERROR)
 
 # Configuración de visualización
 sns.set_theme(style="whitegrid")
 plt.rcParams['figure.figsize'] = (10, 6)
 
 def main():
-    print("=== Iniciando Proyecto: Análisis Predictivo de League of Legends ===")
+    print("=== Iniciando Proyecto: League Learning (AI Analytics) ===")
     
     # ---------------------------------------------------------
     # 1. ENTENDIMIENTO DE LOS DATOS
@@ -73,7 +82,7 @@ def main():
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
     
-    print(f"Datos preparados. Características: {X_train.shape[1]}")
+    print(f"Datos preparados. Características (Features): {X_train.shape[1]}")
     
     # ---------------------------------------------------------
     # 3. MODELADO
@@ -85,7 +94,7 @@ def main():
         "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
         "SVM": SVC(probability=True, kernel='rbf', C=1.0),
         "KNN": KNeighborsClassifier(n_neighbors=15),
-        "XGBoost": XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+        "XGBoost": XGBClassifier(eval_metric='logloss', random_state=42)
     }
     
     results = {}
@@ -105,7 +114,8 @@ def main():
     # Red Neuronal (MLP con Keras)
     print("Entrenando Red Neuronal (MLP)...")
     mlp = Sequential([
-        Dense(64, activation='relu', input_shape=(X_train_scaled.shape[1],)),
+        Input(shape=(X_train_scaled.shape[1],)),
+        Dense(64, activation='relu'),
         Dropout(0.2),
         Dense(32, activation='relu'),
         Dense(1, activation='sigmoid')
@@ -131,23 +141,32 @@ def main():
     print("\nResumen de métricas:")
     print(results_df)
     
-    # Matriz de Confusión del mejor modelo (según AUC)
+    # Identificar el mejor modelo para el resumen final
     best_model_name = results_df.index[0]
-    print(f"\nGenerando matriz de confusión para el mejor modelo: {best_model_name}")
     
-    if best_model_name == "Red Neuronal":
-        y_pred_best = (results[best_model_name]['Model'].predict(X_test_scaled).flatten() > 0.5).astype(int)
-    else:
-        y_pred_best = results[best_model_name]['Model'].predict(X_test_scaled)
+    # Crear carpeta para matrices si no existe
+    if not os.path.exists('matrices'):
+        os.makedirs('matrices')
     
-    cm = confusion_matrix(y_test, y_pred_best)
-    plt.figure(figsize=(8,6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-    plt.title(f'Matriz de Confusión: {best_model_name}')
-    plt.ylabel('Real')
-    plt.xlabel('Predicho')
-    plt.savefig('confusion_matrix_best.png')
-    print("Matriz de confusión guardada como 'confusion_matrix_best.png'.")
+    for name, data in results.items():
+        print(f"Generando matriz para: {name}")
+        model = data['Model']
+        if name == "Red Neuronal":
+            y_pred_m = (model.predict(X_test_scaled, verbose=0).flatten() > 0.5).astype(int)
+        else:
+            y_pred_m = model.predict(X_test_scaled)
+            
+        cm = confusion_matrix(y_test, y_pred_m)
+        plt.figure(figsize=(6,4))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+        plt.title(f'Matriz de Confusión: {name}')
+        plt.ylabel('Real')
+        plt.xlabel('Predicho')
+        filename = f"matrices/cm_{name.replace(' ', '_').lower()}.png"
+        plt.savefig(filename)
+        plt.close() # Importante para no acumular figuras
+    
+    print(f"\nSe han guardado las matrices de confusión de todos los modelos en la carpeta '/matrices'.")
     
     # Importancia de características (Random Forest)
     if "Random Forest" in models:
@@ -170,10 +189,5 @@ def main():
     # ---------------------------------------------------------
     # 6. CONCLUSIONES
     # ---------------------------------------------------------
-    print("\n[6/6] Conclusiones...")
-    print("- Las métricas de economía (oro por minuto) y participación en objetivos son determinantes clave.")
-    print("- Los modelos de ensamble (Random Forest, XGBoost) superan ligeramente a los lineales en este dataset.")
-    print("- La normalización por tiempo es crítica para evitar sesgos por duración de partida.")
-
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-# League of Analytics PRO (DAT 255)
+# League Learning (DAT 255) IA Analytics Pipeline
 
 Este repositorio contiene el proyecto final de análisis predictivo basado en datos de League of Legends. El proyecto utiliza la metodología **CRISP-DM** para transformar 29,162 registros en inteligencia accionable.
 
@@ -17,8 +17,8 @@ Este repositorio contiene el proyecto final de análisis predictivo basado en da
 
 1.  Clona el repositorio:
     ```bash
-    git clone https://github.com/Zinko5/255proy1.git
-    cd 255proy1
+    git clone git@github.com:Zinko5/league-learning.git
+    cd league-learning
     ```
 2.  Instala las dependencias:
     ```bash
@@ -43,3 +43,7 @@ Este repositorio contiene el proyecto final de análisis predictivo basado en da
 **Autor:** Gabriel Marcelo Muñoz Callisaya
 **Docente:** M. Sc. Menfy Morales Ríos
 **Materia:** DAT-255
+
+---
+> **Legal Disclaimer:**
+> **League Learning** isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.

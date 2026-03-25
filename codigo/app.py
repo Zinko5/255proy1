@@ -17,7 +17,7 @@ import os
 
 # CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
-    page_title="LoL Analytics PRO - Model Driven",
+    page_title="League Learning - AI Analytics",
     page_icon="🤖",
     layout="wide",
 )
@@ -137,7 +137,7 @@ if df_matches is not None:
         if "profile" in st.query_params: del st.query_params["profile"]
 
     if st.session_state.viewing_profile is None and mode == "🔥 Inicio / Rankings":
-        st.markdown("<div class='hero-section'><h1>🏆 LoL Analytics Engine</h1><p>Análisis Profesional Basado en Inteligencia Artificial</p></div>", unsafe_allow_html=True)
+        st.markdown("<div class='hero-section'><h1>🏆 League Learning</h1><p>Análisis Profesional Basado en Inteligencia Artificial</p></div>", unsafe_allow_html=True)
         col_s1, col_s2, col_s3 = st.columns([1, 2, 1])
         with col_s2:
             st.markdown("### 🔍 Buscar Invocador")
@@ -461,3 +461,13 @@ if df_matches is not None:
 
 else:
     st.error("Error al cargar datos.")
+
+# --- FOOTER LEGAL ---
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; color: #555; font-size: 12px; padding: 20px;'>
+    <b>League Learning</b> isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games 
+    or anyone officially involved in producing or managing Riot Games properties. 
+    Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
+</div>
+""", unsafe_allow_html=True)

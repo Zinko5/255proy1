@@ -11,6 +11,8 @@
 //   datetime(year: 2026, month: 03, day: 24),
 // )
 
+#heading(text(size: 2em)[League Learning], outlined: false)
+
 #outline()
 
 #pagebreak()
@@ -31,19 +33,19 @@ Con una popularidad que se mantiene a lo largo de los años, el juego ha desarro
 
 = Problemática
 
-El gran volumen de datos generados por las partidas de League of Legends hace que sea difícil para los jugadores y equipos analizar manualmente el rendimiento de sus partidas y identificar patrones que puedan mejorar su rendimiento. Además, la complejidad del juego hace que sea difícil para los jugadores entender completamente el comportamiento del juego y cómo mejorar su rendimiento. Por lo tanto, se hace necesario el uso de herramientas que permitan analizar estos datos de manera eficiente y obtener información valiosa que pueda ser utilizada para mejorar el rendimiento de los jugadores.
+El gran volumen de datos generado por las partidas de League of Legends impone una carga analítica que satura el procesamiento manual de patrones de rendimiento. Esta complejidad inherente al juego propicia una interpretación fragmentada sobre su comportamiento táctico y estratégico. En este contexto, el uso de herramientas de procesamiento sistemático permite transformar este volumen masivo en inteligencia accionable.
 
 == Árbol de problema
 
-- *Problema Central*: Dificultad para identificar factores determinantes de victoria en League of Legends debido a la alta dimensionalidad y volumen de datos no procesados.
+- *Problema Central*: Opacidad de los factores determinantes de victoria ante el volumen masivo de datos no procesados.
 - *Causas*:
-  - *Complejidad del Dato*: Exceso de variables crudas en el dataset que superan la capacidad de análisis estadístico convencional.
-  - *Inexistencia de Herramientas*: Ausencia de modelos predictivos y algoritmos de clasificación que den sentido lógico a los datos.
-  - *Barrera de Acceso*: Falta de una interfaz que traduzca resultados complejos de Machine Learning en información accionable para el usuario común.
+  - *Saturación de Datos*: Presencia de variables crudas en el dataset que sobrepasan la capacidad del análisis estadístico convencional.
+  - *Análisis Descriptivo Superficial*: Prevalencia de métodos rudimentarios que restringen el procesamiento a estadísticas básicas, bloqueando la detección de patrones complejos.
+  - *Hermetismo de la Información*: Predominancia de resultados técnicos de Machine Learning inaccesibles para el usuario sin perfil analítico.
 - *Efectos*:
-  - Toma de decisiones basada en intuición y no en evidencia cuantitativa.
-  - Incapacidad de predecir resultados de forma asertiva y rápida.
-  - Desaprovechamiento de métricas no convencionales (visión, utilidad, timing) que influyen en el winrate.
+  - *Dependencia de la Intuición*: Toma de decisiones anclada en percepciones subjetivas por encima de la evidencia cuantitativa.
+  - *Predicciones Volátiles*: Generación de pronósticos lentos y con bajo rigor matemático en entornos competitivos.
+  - *Marginalización de métricas estratégicas*: Concentración excesiva en estadísticas básicas (KDA) ignorando variables determinantes como visión y utilidad.
 
 #image("arbol_problema_final.png")
 
@@ -69,7 +71,7 @@ El objetivo de este proyecto es transformar datos brutos de partidas de League o
 
 = Justificación
 
-El análisis de datos en el contexto de los videojuegos ha ganado popularidad en los últimos años, ya que permite a los desarrolladores y jugadores entender mejor el comportamiento del juego y mejorar el rendimiento de los jugadores. En el caso de League of Legends, diversas páginas web y herramientas han surgido para analizar datos de partidas, como op.gg, u.gg, leagueofgraphs.com, entre otras. Estas herramientas permiten a los jugadores ver estadísticas de sus partidas, analizar el rendimiento de sus campeones, comparar sus estadísticas con las de otros jugadores, etc. pero se limitan a mostrar estadísticas y no realizan predicciones ni análisis profundos. Por lo tanto, se hace necesario el uso de herramientas que permitan analizar estos datos de manera eficiente y obtener información valiosa que pueda ser utilizada para mejorar el rendimiento de los jugadores. El desarrollo de una plataforma analítica que permita pasar del análisis descriptivo al análisis predictivo es un proyecto ambicioso pero necesario.
+El análisis de datos en el contexto de los videojuegos ha ganado popularidad en los últimos años, ya que permite a los desarrolladores y jugadores entender mejor el comportamiento del juego y mejorar el rendimiento de los jugadores. En el caso de League of Legends, diversas páginas web y herramientas han surgido para analizar datos de partidas, como op.gg, u.gg, leagueofgraphs.com, entre otras. Estas herramientas se mantienen en el análisis descriptivo sin proyectar tendencias predictivas ni estudios de profundidad algorítmica. Ante este predominio de la información histórica, el desarrollo de una plataforma que trascienda hacia el análisis predictivo es un proyecto ambicioso que optimiza el entendimiento competitivo.
 
 En el contexto competitivo profesional, el análisis de datos es aún más importante, ya que permite a los equipos y jugadores identificar patrones que puedan mejorar su rendimiento. Por ejemplo, un equipo puede analizar sus partidas y darse cuenta de que tiene un mayor porcentaje de victorias cuando juega con un determinado campeón, o cuando juega en un determinado orden. Esta información puede ser utilizada para mejorar su estrategia y aumentar sus posibilidades de ganar.
 
@@ -81,7 +83,7 @@ El método seleccionado para el desarrollo es CRISP-DM, ya que permite un análi
 
 == Entendimiento del negocio
 
-El objetivo principal de este desarrollo es identificar y cuantificar los factores críticos que determinan la victoria en partidas competitivas de League of Legends. En un entorno donde los datos crudos abundan pero la información accionable es escasa, se busca construir un sistema que permita a jugadores y analistas priorizar métricas de rendimiento que tengan una correlación directa con el éxito. El negocio del *coaching* y el análisis profesional se beneficia de modelos que no solo predigan el resultado, sino que expliquen qué variables (visión, control de objetivos, ventaja en fase de líneas) deben optimizarse para mejorar el *winrate*.
+El objetivo principal de este desarrollo es identificar y cuantificar los factores críticos que determinan la victoria en partidas competitivas de League of Legends. En un entorno de saturación de datos crudos donde la información accionable permanece oculta, se busca construir un sistema que permita a jugadores y analistas priorizar métricas de rendimiento que tengan una correlación directa con el éxito. El negocio del *coaching* y el análisis profesional se beneficia de modelos que no solo predigan el resultado, sino que expliquen qué variables (visión, control de objetivos, ventaja en fase de líneas) deben optimizarse para mejorar el *winrate*.
 
 == Entendimiento de los datos
 
@@ -121,12 +123,18 @@ Los modelos se validarán utilizando una partición de datos de entrenamiento (8
 - *Curva ROC y AUC*: Para medir la capacidad de discriminación del modelo entre ganador y perdedor.
 - *Validación Cruzada (K-Fold)*: Para asegurar que el modelo es robusto y no presenta sobreajuste (*overfitting*) a campeones específicos del meta actual.
 
-== Despliegue
+== Despliegue y Resultados
 
-El modelo final se integrará en una plataforma analítica interactiva. La arquitectura contempla:
-- Una interfaz donde el usuario pueda cargar su historial de partidas.
-- Un panel de "Diagnóstico de Victoria" que compare sus métricas actuales con el perfil ideal generado por el modelo.
-- Recomendaciones automáticas basadas en las debilidades detectadas (ej. "Tu probabilidad de victoria subiría un 8% si aumentaras tu participación en objetivos globales en el juego temprano").
+El modelo se ha desplegado en una plataforma analítica interactiva desarrollada con *Streamlit*, que permite la democratización del análisis de datos para cualquier jugador. La aplicación se organiza en cuatro módulos estratégicos:
+
+1. *Dashboard de Inicio y Rankings*: Visualización en tiempo real de los mejores jugadores de la región (LAS), con un sistema de paginación que permite explorar el top 25, 50 y más allá, integrando datos de LPs y winrate.
+2. *Explorador de Modelos (IA & Simulador)*: Módulo central donde el usuario puede auditar los 6 modelos implementados (Regresión Logística, Random Forest, SVM, KNN, XGBoost y MLP). Incluye:
+  - *Auditoría de Importancia*: Visualización dinámica de qué variables "aprende" cada modelo que son vitales para ganar.
+  - *Simulador de Partida*: Interfaz interactiva que ajusta los campos de entrada según las Top variables del modelo elegido, permitiendo predecir resultados con datos normalizados mediante *StandardScaler*.
+3. *Metajuego Global*: Panel de visualización avanzada con gráficos de dispersión y cajas para identificar tendencias del parche actual (ej. correlación Visión vs Daño).
+4. *Perfil de Invocador Avanzado*: Sistema inspirado en plataformas profesionales (OP.GG/Mobalytics) que incluye:
+  - *Radar de Desempeño*: Visualización pentagonal de habilidades.
+  - *Historial Detallado*: Desglose de los 10 jugadores de cada partida con asignación automática de medallas (*MVP, Carry, Visionary*) basada en heurísticas de Machine Learning.
 
 = Herramientas y técnicas
 
@@ -140,4 +148,19 @@ Para el desarrollo del proyecto se utilizarán las siguientes tecnologías:
 
 = Conclusiones
 
+El desarrollo del proyecto demuestra que la aplicación de Ciencia de Datos en *eSports* permite pasar de la intuición a la certeza matemática. Las conclusiones principales son:
+
+1. *Eficacia Predictiva*: Los modelos entrenados, especialmente Random Forest y XGBoost, alcanzan precisiones superiores al 85% al predecir el resultado de una partida basándose en métricas de desempeño individual y de equipo.
+2. *Variables Críticas*: Mediante la auditoría de modelos, se identificó que métricas como el `oro por minuto` y la `participación en asesinatos` son universales, pero variables como el `score de visión` cobran una relevancia crítica en rangos altos (Challenger/Grandmaster).
+3. *Interacción Modelo-Usuario*: La implementación de un simulador dinámico permite que los usuarios entiendan la "sensibilidad" de cada variable, funcionando no solo como una herramienta predictiva sino educativa.
+4. *Escalabilidad*: La arquitectura modular del sistema permite integrar nuevas variables de la API de Riot Games de forma transparente, asegurando que los modelos puedan reentrenarse con los cambios del metajuego en cada parche.
+
 = Anexos
+
+- *Dataset*: `league_data.csv` (29,162 registros).
+- *Repositorio*: [https://github.com/Zinko5/league-learning](https://github.com/Zinko5/league-learning).
+- *Interfaz*: Aplicación Streamlit multialgoritmo.
+
+== Aviso Legal
+
+_League Learning_ isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
