@@ -91,7 +91,7 @@ El objetivo principal de este desarrollo es identificar y cuantificar los factor
 
 == Entendimiento de los datos
 
-El dataset base, `league_data.csv`, consta de 29,162 registros capturados a través de la API de Riot Games. Cada registro representa el desempeño individual de un jugador en una partida específica, abarcando 31 variables clave definidas en el `diccionario.md`:
+El dataset base, `league_data.csv`, consta de 29,162 registros capturados a través de la API de Riot Games. Cada registro representa el desempeño individual de un jugador en una partida específica, abarcando 29 variables clave definidas en el `diccionario.md`:
 
 - *Variable Objetivo*: `win` (booleano), que indica si el jugador ganó o perdió la partida.
 - *Variables de Combate*: `kills`, `deaths`, `assists`, `totalDamageDealtToChampions`.

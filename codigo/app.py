@@ -42,15 +42,15 @@ st.markdown("""
 NUMERIC_FEATURES = [
     'champLevel', 'kills', 'deaths', 'assists', 'goldEarned', 'totalMinionsKilled', 'visionScore', 
     'totalDamageDealtToChampions', 'totalDamageTaken', 'damageDealtToEpicMonsters', 
-    'turretKills', 'damageDealtToTurrets', 'challenge_teamRiftHeraldKills', 
+    'damageDealtToTurrets', 'challenge_teamRiftHeraldKills', 
     'challenge_teamBaronKills', 'challenge_teamElderDragonKills', 
-    'challenge_highestChampionDamage', 'challenge_kda', 'challenge_killParticipation', 
+    'challenge_highestChampionDamage', 'challenge_killParticipation', 
     'challenge_laningPhaseGoldExpAdvantage', 'challenge_teamDamagePercentage', 'totalPings'
 ]
 INT_FEATURES = {
     'champLevel', 'kills', 'deaths', 'assists', 'goldEarned', 'totalMinionsKilled', 
     'visionScore', 'totalDamageDealtToChampions', 'totalDamageTaken', 
-    'damageDealtToEpicMonsters', 'turretKills', 'damageDealtToTurrets', 
+    'damageDealtToEpicMonsters', 'damageDealtToTurrets', 
     'challenge_teamRiftHeraldKills', 'challenge_teamBaronKills', 
     'challenge_teamElderDragonKills', 'challenge_highestChampionDamage', 'totalPings'
 }
@@ -65,13 +65,11 @@ FEATURE_LABELS = {
     'totalDamageDealtToChampions': 'Daño a Campeones',
     'totalDamageTaken': 'Daño Recibido',
     'damageDealtToEpicMonsters': 'Daño a Objetivos Épicos',
-    'turretKills': 'Torretas Destruidas',
     'damageDealtToTurrets': 'Daño a Torretas',
     'challenge_teamRiftHeraldKills': 'Heraldos (Equipo)',
     'challenge_teamBaronKills': 'Barones (Equipo)',
     'challenge_teamElderDragonKills': 'Dragones Ancianos (Equipo)',
     'challenge_highestChampionDamage': 'Daño Máximo Producido',
-    'challenge_kda': 'KDA',
     'challenge_killParticipation': 'Participación en muertes',
     'challenge_laningPhaseGoldExpAdvantage': 'Ventaja en Fase de Líneas',
     'challenge_teamDamagePercentage': '% de Daño del Equipo',
@@ -136,6 +134,7 @@ def load_role_models(role="ALL"):
             "Random Forest": {"model": joblib.load(f"{base_path}/rf.joblib")},
             "XGBoost": {"model": joblib.load(f"{base_path}/xgb.joblib")},
             "SVM": {"model": joblib.load(f"{base_path}/svm.joblib")},
+            "KNN": {"model": joblib.load(f"{base_path}/knn.joblib")},
             "Red Neuronal (MLP)": {"model": load_model(f"{base_path}/mlp.keras")}
         }
         scaler = joblib.load(f"{base_path}/scaler.joblib")
@@ -145,6 +144,7 @@ def load_role_models(role="ALL"):
         models["Random Forest"]["importances"] = pd.Series(models["Random Forest"]["model"].feature_importances_, index=NUMERIC_FEATURES).sort_values(ascending=False)
         models["XGBoost"]["importances"] = pd.Series(models["XGBoost"]["model"].feature_importances_, index=NUMERIC_FEATURES).sort_values(ascending=False)
         models["SVM"]["importances"] = pd.Series(models["SVM"]["model"].coef_[0], index=NUMERIC_FEATURES).abs().sort_values(ascending=False)
+        models["KNN"]["importances"] = pd.Series(0, index=NUMERIC_FEATURES)
         models["Red Neuronal (MLP)"]["importances"] = pd.Series(0, index=NUMERIC_FEATURES)
         
         return models, scaler
@@ -167,18 +167,29 @@ if "profile" in st.query_params:
         st.session_state.viewing_profile = canonical_name
     else:
         st.session_state.viewing_profile = profile_raw
+# INICIALIZACIÓN DE ESTADOS GLOBALES
+if "nav_radio" not in st.session_state: st.session_state.nav_radio = "🔥 Inicio / Rankings"
+if "selected_simulator_role" not in st.session_state: st.session_state.selected_simulator_role = "ALL"
+if "nav_mode" not in st.session_state: st.session_state.nav_mode = st.session_state.nav_radio
+if "last_url_nav" not in st.session_state: st.session_state.last_url_nav = None
+
+# Sincronización URL -> State (Solo si el parámetro de la URL cambia externamente)
 if "nav" in st.query_params:
-    st.session_state.nav_mode = st.query_params["nav"]
-else:
-    if "nav_mode" not in st.session_state: st.session_state.nav_mode = "🔥 Inicio / Rankings"
+    url_nav = st.query_params["nav"]
+    if url_nav != st.session_state.last_url_nav:
+        st.session_state.nav_radio = url_nav
+        st.session_state.nav_mode = url_nav
+        st.session_state.last_url_nav = url_nav
 
 # --- MANEJADOR DE NAVEGACIÓN PENDIENTE (REDIRECCIONES) ---
 if "pending_nav" in st.session_state:
     target = st.session_state.pending_nav
+    st.session_state.nav_radio = target
     st.session_state.nav_mode = target
-    st.session_state.nav_radio = target # Sincronizar widget
-    st.query_params["nav"] = target # Sincronizar URL
+    st.session_state.last_url_nav = target # Sincronizar token de URL
+    st.query_params["nav"] = target
     del st.session_state.pending_nav
+
 
 if df_matches is not None:
     # 2. MANEJO DE NAVEGACIÓN (Sidebar)
@@ -188,11 +199,16 @@ if df_matches is not None:
     
     # Pestaña IA: Selector de Modelo Pre-entrenado
     st.sidebar.subheader("🎯 Configuración IA")
+    roles_list = ["ALL", "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+    role_idx = roles_list.index(st.session_state.selected_simulator_role)
     selected_role = st.sidebar.selectbox(
         "Rol del modelo (Simulador):", 
-        ["ALL", "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"],
-        help="Carga los modelos entrenados específicamente para este rol."
+        roles_list,
+        index=role_idx,
+        help="Carga los modelos entrenados específicamente para este rol.",
+        key="role_selector_sidebar"
     )
+    st.session_state.selected_simulator_role = selected_role
     
     # Cargamos modelos (Instantáneo desde modelos/)
     models_dict, main_scaler = load_role_models(selected_role)
@@ -211,14 +227,13 @@ if df_matches is not None:
     # Usar el estado para el radio button
     mode = st.sidebar.radio("Sección:", 
                             ["🔥 Inicio / Rankings", "🧠 IA & Simulador", "📊 Metajuego", "👤 Perfil"],
-                            index=["🔥 Inicio / Rankings", "🧠 IA & Simulador", "📊 Metajuego", "👤 Perfil"].index(st.session_state.nav_mode),
                             key="nav_radio")
     
-    # Sincronizar cambios del radio al estado y URL
+    # Sincronizar cambios manuales del radio al URL y al modo
     if mode != st.session_state.nav_mode:
         st.session_state.nav_mode = mode
+        st.session_state.last_url_nav = mode # Actualizar token para no entrar en bucle
         st.query_params["nav"] = mode
-        st.rerun()
 
     # Sincronizar perfil a la URL
     if st.session_state.viewing_profile:
@@ -367,10 +382,16 @@ if df_matches is not None:
                 submit_btn = st.form_submit_button("🚀 Generar Diagnóstico", width="stretch")
             
             if submit_btn:
-                # Preparamos el vector de entrada (todas las variables numéricas)
+                # Preparamos el vector de entrada con alta fidelidad
                 full_input = []
                 for f in NUMERIC_FEATURES:
-                    full_input.append(float(inputs.get(f, df_matches[f].mean())))
+                    if f in inputs:
+                        val = inputs[f] # Valor modificado en el form
+                    elif f in source_data:
+                        val = source_data[f] # Valor real importado (pero oculto en el form)
+                    else:
+                        val = df_matches[f].mean() # Promedio si no hay datos
+                    full_input.append(float(val))
                 
                 # Pasamos un DataFrame para evitar avisos de Scikit-Learn sobre nombres de features
                 input_df = pd.DataFrame([full_input], columns=NUMERIC_FEATURES)
@@ -381,8 +402,8 @@ if df_matches is not None:
                 else:
                     prob = models_dict[selected_model]["model"].predict_proba(input_scaled)[0][1]
                 
-                st.markdown(f"## Probabilidad de Victoria: `{prob*100:.1f}%`")
-                st.progress(prob)
+                st.markdown(f"## Probabilidad de Victoria: `{float(prob)*100:.1f}%`")
+                st.progress(float(prob))
                 
                 if prob > 0.6: st.success("Perfil de Victoria: Las métricas sugieren un desempeño dominante.")
                 elif prob < 0.4: st.error("Riesgo de Derrota: Estas métricas coinciden con situaciones de desventaja crítica.")
@@ -531,8 +552,10 @@ if df_matches is not None:
                         with col_act1:
                             if st.button(f"📤 Exportar datos al Simulador", key=f"btn_exp_{m_id}", width="stretch"):
                                 st.session_state.simulator_data = match_row.to_dict()
-                                # Marcamos redirección pendiente para el próximo ciclo
-                                st.session_state.pending_nav = "🧠 IA & Simulador"
+                                # Limpiar el rol por si tiene prefijos y asegurar que existe en la lista
+                                assigned_role = m_pos if m_pos in ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"] else "ALL"
+                                st.session_state.selected_simulator_role = assigned_role
+                                st.session_state.pending_nav = "🧠 IA & Simulador" # Marcar para el próximo ciclo
                                 st.rerun()
                         with col_act2:
                             if st.button(f"📊 Ver todas las {len(match_row)} stats", key=f"btn_ext_stats_{m_id}", width="stretch"):
@@ -575,7 +598,10 @@ if df_matches is not None:
                                 r_cols = st.columns([2.5, 1.5, 1.5, 1.5, 1.5, 1.5, 2.5])
                                 
                                 badges = []
-                                if p_row['challenge_kda'] >= team_df['challenge_kda'].max() and p_row['win']: badges.append("⭐")
+                                # Cálculo de KDA manual para badges
+                                p_kda = (p_row['kills'] + p_row['assists']) / max(1, p_row['deaths'])
+                                team_kdas = (team_df['kills'] + team_df['assists']) / team_df['deaths'].replace(0, 1)
+                                if p_kda >= team_kdas.max() and p_row['win']: badges.append("⭐")
                                 if p_row['visionScore'] > 35: badges.append("👁️")
                                 if p_row['totalDamageDealtToChampions'] >= team_df['totalDamageDealtToChampions'].max(): badges.append("💥")
                                 
@@ -612,9 +638,11 @@ if df_matches is not None:
             with col_s1:
                 if not p_match_history.empty:
                     stats = p_match_history.mean(numeric_only=True)
+                    # Cálculo de KDA manual
+                    p_kda_avg = (stats['kills'] + stats['assists']) / max(1, stats['deaths'])
                     radar_data = pd.DataFrame(dict(
                         r=[
-                            min(100, (stats['challenge_kda']/5)*100),
+                            min(100, (p_kda_avg/5)*100),
                             min(100, (stats['visionScore']/50)*100),
                             min(100, (stats['challenge_teamDamagePercentage']*300)),
                             min(100, (stats['champLevel']/18)*100),
@@ -629,7 +657,8 @@ if df_matches is not None:
             with col_s2:
                 st.subheader("Promedios del Jugador")
                 avg_stats = p_match_history.mean(numeric_only=True)
-                st.write(f"- **KDA Promedio:** {avg_stats['challenge_kda']:.2f}")
+                p_kda_total = (avg_stats['kills'] + avg_stats['assists']) / max(1, avg_stats['deaths'])
+                st.write(f"- **KDA Promedio:** {p_kda_total:.2f}")
                 st.write(f"- **Oro por Partida:** {avg_stats['goldEarned']:.0f}")
                 st.write(f"- **Súbditos por Partida:** {avg_stats['totalMinionsKilled']:.0f}")
                 st.write(f"- **Daño a Campeones:** {avg_stats['totalDamageDealtToChampions']:.0f}")
@@ -642,7 +671,10 @@ if df_matches is not None:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Partidas Analizadas", f"{len(df_matches):,}")
         c2.metric("Invocadores Únicos", f"{df_matches['jugador'].nunique():,}")
-        c3.metric("KDA Promedio", f"{df_matches['challenge_kda'].mean():.2f}")
+        
+        # KDA Promedio global calculado
+        global_kda = (df_matches['kills'].mean() + df_matches['assists'].mean()) / max(1, df_matches['deaths'].mean())
+        c3.metric("KDA Promedio", f"{global_kda:.2f}")
         c4.metric("Winrate Global", f"{df_matches['win'].mean()*100:.1f}%")
         
         st.divider()

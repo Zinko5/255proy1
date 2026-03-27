@@ -9,6 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 from xgboost import XGBClassifier
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Input
@@ -24,9 +25,9 @@ warnings.filterwarnings('ignore')
 NUMERIC_FEATURES = [
     'champLevel', 'kills', 'deaths', 'assists', 'goldEarned', 'totalMinionsKilled', 'visionScore', 
     'totalDamageDealtToChampions', 'totalDamageTaken', 'damageDealtToEpicMonsters', 
-    'turretKills', 'damageDealtToTurrets', 'challenge_teamRiftHeraldKills', 
+    'damageDealtToTurrets', 'challenge_teamRiftHeraldKills', 
     'challenge_teamBaronKills', 'challenge_teamElderDragonKills', 
-    'challenge_highestChampionDamage', 'challenge_kda', 'challenge_killParticipation', 
+    'challenge_highestChampionDamage', 'challenge_killParticipation', 
     'challenge_laningPhaseGoldExpAdvantage', 'challenge_teamDamagePercentage', 'totalPings'
 ]
 
@@ -82,6 +83,11 @@ def train_and_save_role(df_full, role):
     print("  -> SVM...")
     svm = SVC(probability=True, kernel='linear', C=0.01).fit(X_train, y_train)
     joblib.dump(svm, f"{base_path}/svm.joblib")
+    
+    # KNN
+    print("  -> KNN...")
+    knn = KNeighborsClassifier(n_neighbors=15).fit(X_train, y_train)
+    joblib.dump(knn, f"{base_path}/knn.joblib")
     
     # Red Neuronal (MLP)
     print("  -> Red Neuronal (Keras)...")

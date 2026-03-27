@@ -21,7 +21,6 @@ Este documento describe las variables contenidas en el archivo `league_data.csv`
 | `totalDamageDealtToChampions` | Daño físico, mágico y verdadero total infligido a campeones rivales | Integer |
 | `totalDamageTaken` | Daño total recibido de todas las fuentes enemigas | Integer |
 | `damageDealtToEpicMonsters` | Daño infligido a monstruos épicos (Dragones, Barón Nashor, Heraldo) | Integer |
-| `turretKills` | Número de torretas enemigas destruidas por el jugador | Integer |
 | `damageDealtToTurrets` | Daño total infligido a las estructuras (torretas) enemigas | Integer |
 | `challenge_teamRiftHeraldKills` | Total de Heraldos de la Grieta eliminados por el equipo del jugador | Integer |
 | `challenge_teamBaronKills` | Total de Barones de Nashor eliminados por el equipo del jugador | Integer |
@@ -30,7 +29,6 @@ Este documento describe las variables contenidas en el archivo `league_data.csv`
 | `challenge_goldPerMinute` | Promedio de oro obtenido por el jugador por cada minuto de partida | Float |
 | `challenge_hadAfkTeammate` | Indica si el jugador tuvo algún compañero desconectado o ausente (AFK) | Integer |
 | `challenge_highestChampionDamage` | Métrica relativa al mayor daño infligido a campeones en la partida | Float |
-| `challenge_kda` | Cálculo de la relación Kills + Assists dividido por Deaths | Float |
 | `challenge_killParticipation` | Porcentaje de muertes enemigas en las que el jugador participó (K+A) / Total Kills Equipo | Float |
 | `challenge_laningPhaseGoldExpAdvantage` | Ventaja de recursos (oro/experiencia) obtenida frente al oponente directo en fase de líneas | Float |
 | `challenge_teamDamagePercentage` | Proporción del daño total del equipo que fue infligido por el jugador | Float |
