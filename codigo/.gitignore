@@ -1,0 +1,8 @@
+venv/
+*.bak
+*.png
+matrices/
+__pycache__/
+.streamlit/
+*.csv
+!app.py
