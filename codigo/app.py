@@ -156,7 +156,6 @@ def load_role_models(role="ALL"):
 df_matches, df_players, name_mapping = load_data()
 
 # 1. SINCRONIZACIÓN DE URL -> ESTADO (Al cargar)
-import urllib.parse
 if "profile" in st.query_params:
     profile_raw = urllib.parse.unquote(st.query_params["profile"])
     # Resolvemos el nombre canonical (actual) si es un nombre viejo
@@ -235,13 +234,13 @@ if df_matches is not None:
         st.session_state.last_url_nav = mode # Actualizar token para no entrar en bucle
         st.query_params["nav"] = mode
 
-    # Sincronizar perfil a la URL
-    if st.session_state.viewing_profile:
+    # Sincronizar perfil a la URL solo si estamos en la sección de Perfil
+    if mode == "👤 Perfil" and st.session_state.viewing_profile:
         st.query_params["profile"] = st.session_state.viewing_profile
-    else:
-        if "profile" in st.query_params: del st.query_params["profile"]
+    elif "profile" in st.query_params:
+        del st.query_params["profile"]
 
-    if st.session_state.viewing_profile is None and mode == "🔥 Inicio / Rankings":
+    if mode == "🔥 Inicio / Rankings":
         st.markdown("<div class='hero-section'><h1>🏆 League Learning</h1><p>Análisis Profesional Basado en Inteligencia Artificial</p></div>", unsafe_allow_html=True)
         col_s1, col_s2, col_s3 = st.columns([1, 2, 1])
         with col_s2:
@@ -409,9 +408,29 @@ if df_matches is not None:
                 elif prob < 0.4: st.error("Riesgo de Derrota: Estas métricas coinciden con situaciones de desventaja crítica.")
                 else: st.warning("Resultado Incierto: Juego cerrado o variables equilibradas.")
 
-    elif st.session_state.viewing_profile is not None or mode == "👤 Perfil":
-        p_name = st.session_state.viewing_profile if st.session_state.viewing_profile else st.selectbox("Invocador:", sorted(df_matches['jugador'].unique()))
+    elif mode == "👤 Perfil":
+        # Determinamos la lista de jugadores disponibles
+        p_names = sorted(df_players['nombre'].unique()) if df_players is not None else sorted(df_matches['jugador'].unique())
         
+        # Lógica de jugador por defecto
+        default_player = "Zinko5#LAS"
+        if st.session_state.viewing_profile and st.session_state.viewing_profile in p_names:
+            current_idx = p_names.index(st.session_state.viewing_profile)
+        elif default_player in p_names:
+            current_idx = p_names.index(default_player)
+        else:
+            current_idx = 0
+
+        # Barra de búsqueda siempre visible en Perfil
+        p_name = st.selectbox("Invocador:", p_names, index=current_idx, key="profile_search_selectbox")
+        
+        # Sincronizar estado si cambia el selectbox
+        if p_name != st.session_state.viewing_profile:
+            st.session_state.viewing_profile = p_name
+            st.query_params["profile"] = p_name
+            # No hacemos rerun aquí para evitar parpadeo, dejamos que fluya el resto del renderizado
+            # con el p_name ya actualizado.
+
         # --- CABECERA SUPERIOR ---
         st.markdown(f"<h1 style='display:flex; align-items:center;'><span style='font-size:40px; margin-right:15px;'>👤</span> {p_name}</h1>", unsafe_allow_html=True)
         
