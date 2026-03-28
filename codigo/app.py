@@ -9,6 +9,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from xgboost import XGBClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from sklearn.preprocessing import StandardScaler
@@ -81,6 +84,31 @@ FEATURE_LABELS = {
     'individualPosition': 'Posición'
 }
 
+# [CRISP-DM] Sincronización de preparación de datos
+BASE_METRICS = [
+    'goldEarned', 
+    'totalMinionsKilled', 
+    'totalDamageDealtToChampions', 
+    'totalDamageTaken', 
+    'damageDealtToEpicMonsters', 
+    'damageDealtToTurrets',
+    'kills',
+    'deaths',
+    'assists',
+    'visionScore'
+]
+OTHER_NUMERIC = [
+    # 'champLevel',
+    'challenge_teamRiftHeraldKills', 
+    'challenge_teamBaronKills', 
+    'challenge_teamElderDragonKills', 
+    'challenge_highestChampionDamage', 
+    'challenge_killParticipation',          
+    'challenge_laningPhaseGoldExpAdvantage',
+    'challenge_teamDamagePercentage',       
+    'totalPings'                            
+]
+
 @st.cache_data
 def load_data():
     df_m = pd.read_csv('../league_data.csv') if os.path.exists('../league_data.csv') else None
@@ -119,35 +147,66 @@ def load_data():
         df_m = df_m[df_m['challenge_hadAfkTeammate'] == 0]
         df_m = df_m[df_m['timePlayed'] > 420]
         
+        # [CRISP-DM] Fase 3: Preparación de Datos (Sincronizado con modelado_lol.py)
+        duration_min = df_m['timePlayed'] / 60
+        for metric in BASE_METRICS:
+            df_m[f'{metric}_perMin'] = df_m[metric] / duration_min
+        
     return df_m, df_p, name_to_id
 
 @st.cache_resource
 def load_role_models(role="ALL"):
+    # Normalización de roles para coincidir con carpetas
+    role = str(role).upper()
+    MAPPING_ROLES = {"MID": "MIDDLE", "SUPPORT": "UTILITY", "ADC": "BOTTOM", "BOT": "BOTTOM"}
+    role = MAPPING_ROLES.get(role, role)
+    
     base_path = f"modelos/{role}"
-    if not os.path.exists(base_path):
+    if not os.path.exists(base_path) or not os.path.exists(f"{base_path}/feature_names.joblib"):
+        # Si el rol específico no existe, intentamos cargar el modelo ALL
+        if role != "ALL":
+            return load_role_models("ALL")
         return None, None
         
     try:
-        # Cargamos modelos desde disco (Instantáneo)
-        models = {
-            "Regresión Logística": {"model": joblib.load(f"{base_path}/lr.joblib")},
-            "Random Forest": {"model": joblib.load(f"{base_path}/rf.joblib")},
-            "XGBoost": {"model": joblib.load(f"{base_path}/xgb.joblib")},
-            "SVM": {"model": joblib.load(f"{base_path}/svm.joblib")},
-            "KNN": {"model": joblib.load(f"{base_path}/knn.joblib")},
-            "Red Neuronal (MLP)": {"model": load_model(f"{base_path}/mlp.keras")}
-        }
+        # Cargamos metadata de features
+        feature_names = joblib.load(f"{base_path}/feature_names.joblib")
+        
         scaler = joblib.load(f"{base_path}/scaler.joblib")
+        importances_dict = joblib.load(f"{base_path}/importances.joblib")
         
-        # Calcular importancias/pesos para visualización (solo una vez por carga)
-        models["Regresión Logística"]["importances"] = pd.Series(models["Regresión Logística"]["model"].coef_[0], index=NUMERIC_FEATURES).abs().sort_values(ascending=False)
-        models["Random Forest"]["importances"] = pd.Series(models["Random Forest"]["model"].feature_importances_, index=NUMERIC_FEATURES).sort_values(ascending=False)
-        models["XGBoost"]["importances"] = pd.Series(models["XGBoost"]["model"].feature_importances_, index=NUMERIC_FEATURES).sort_values(ascending=False)
-        models["SVM"]["importances"] = pd.Series(models["SVM"]["model"].coef_[0], index=NUMERIC_FEATURES).abs().sort_values(ascending=False)
-        models["KNN"]["importances"] = pd.Series(0, index=NUMERIC_FEATURES)
-        models["Red Neuronal (MLP)"]["importances"] = pd.Series(0, index=NUMERIC_FEATURES)
+        # Mapeo de nombres internos a etiquetas para UI
+        MAPPING = {
+            "Regresión Logística": "lr",
+            "Random Forest": "rf",
+            "XGBoost": "xgb",
+            "SVM": "svm",
+            "KNN": "knn",
+            "LDA": "lda",
+            "Naive Bayes": "nb",
+            "Árbol de Decisión": "dt",
+            "Red Neuronal (MLP)": "mlp"
+        }
         
-        return models, scaler
+        models = {}
+        for label, file_id in MAPPING.items():
+            path = f"{base_path}/{file_id}.joblib" if file_id != "mlp" else f"{base_path}/mlp.keras"
+            if os.path.exists(path):
+                m_obj = joblib.load(path) if file_id != "mlp" else load_model(path)
+                m_info = {"model": m_obj}
+                
+                # Importancia unificada (Permutación) desde el archivo
+                if file_id in importances_dict:
+                    vals = importances_dict[file_id]
+                else:
+                    vals = np.zeros(len(feature_names))
+                    
+                m_info["importances"] = pd.Series(vals, index=feature_names).sort_values(ascending=False)
+                models[label] = m_info
+        
+        return {"models": models, "scaler": scaler, "features": feature_names}, scaler
+        
+        return {"models": models, "scaler": scaler, "features": feature_names}, scaler
     except Exception as e:
         st.error(f"Error cargando modelos para {role}: {e}")
         return None, None
@@ -210,12 +269,17 @@ if df_matches is not None:
     st.session_state.selected_simulator_role = selected_role
     
     # Cargamos modelos (Instantáneo desde modelos/)
-    models_dict, main_scaler = load_role_models(selected_role)
+    models_bundle, _ = load_role_models(selected_role)
     
-    if models_dict is None:
+    if models_bundle is None:
         st.sidebar.warning("⚠️ Modelos no encontrados. Ejecute modelado_lol.py primero.")
         # Fallback a ALL si falla
-        models_dict, main_scaler = load_role_models("ALL")
+        models_bundle, _ = load_role_models("ALL")
+    
+    # Extraer componentes del bundle
+    models_dict = models_bundle["models"] if models_bundle else {}
+    main_scaler = models_bundle["scaler"] if models_bundle else None
+    role_features = models_bundle["features"] if models_bundle else []
     
     if st.sidebar.button("🏠 Inicio", width="stretch"): 
         st.session_state.viewing_profile = None
@@ -332,21 +396,30 @@ if df_matches is not None:
         with col_m1:
             st.subheader("Configuración del Oráculo")
             selected_model = st.selectbox("Algoritmo de Predicción:", list(models_dict.keys()))
-            st.write(f"Auditoría técnica de: **{selected_model}**")
+            st.markdown(f"**Análisis de Explicabilidad (CRISP-DM Fase 5)**")
             
-            # Mostramos importancias reales por código
+            # Real-time explainability chart
             imp_series = models_dict[selected_model]["importances"]
             if imp_series.sum() > 0:
                 top_features = imp_series.head(6).index.tolist()
-                st.write("**Top Impacto detectado:**")
                 
-                # Mapear nombres para el gráfico
+                # Plotly Bar Chart for better aesthetics
                 chart_data = imp_series.head(10).copy()
                 chart_data.index = [FEATURE_LABELS.get(x, x) for x in chart_data.index]
-                st.bar_chart(chart_data)
+                fig_imp = px.bar(
+                    x=chart_data.values[::-1],
+                    y=chart_data.index[::-1],
+                    orientation='h',
+                    title=f"Variables determinantes ({selected_model})",
+                    color=chart_data.values[::-1],
+                    color_continuous_scale="Viridis",
+                    template="plotly_dark"
+                )
+                fig_imp.update_layout(showlegend=False, margin=dict(l=0, r=0, t=30, b=0), height=300)
+                st.plotly_chart(fig_imp, use_container_width=True)
             else:
-                top_features = ['kills', 'deaths', 'goldEarned', 'visionScore', 'totalDamageDealtToChampions', 'challenge_teamDamagePercentage']
-                st.warning("Este modelo utiliza patrones no-lineales complejos (Caja Negra).")
+                top_features = ['kills', 'deaths', 'goldEarned_perMin', 'visionScore', 'totalDamageDealtToChampions_perMin', 'challenge_teamDamagePercentage']
+                st.info("💡 Calculando patrones no-lineales complejos.")
 
         with col_m2:
             st.subheader(f"🔮 Simulador Dinámico: {selected_model}")
@@ -358,42 +431,53 @@ if df_matches is not None:
                 if st.button("🔄 Restablecer a promedios"):
                     st.session_state.simulator_data = {}
                     st.rerun()
-            else:
-                st.markdown("Ajusta las variables que **este modelo** considera más determinantes.")
             
             with st.form("simulator_form"):
                 inputs = {}
                 cols = st.columns(2)
-                for i, feat in enumerate(top_features):
+                
+                # Obtener subsegmento de datos para límites de sliders (según el rol del simulador)
+                df_m_current = df_matches[df_matches['individualPosition'] == selected_role] if selected_role != 'ALL' else df_matches
+                
+                # Mostrar solo las Top 6 variables que determinan el resultado para ESTE modelo
+                for i, feat in enumerate(top_features[:6]):
                     with cols[i % 2]:
-                        min_val = float(df_matches[feat].min())
-                        max_val = float(df_matches[feat].max())
+                        is_pm = feat.endswith('_perMin')
+                        base_f = feat.replace('_perMin', '') if is_pm else feat
                         
-                        # Usar dato importado o promedio como base
-                        default_val = float(source_data.get(feat, df_matches[feat].mean()))
-                        
-                        label = FEATURE_LABELS.get(feat, feat)
-                        if feat in INT_FEATURES:
-                            inputs[feat] = st.number_input(label, int(min_val), int(max_val), int(round(default_val)), step=1)
+                        if feat in df_m_current:
+                            min_v = float(df_m_current[feat].min())
+                            max_v = float(df_m_current[feat].max())
+                            default_v = float(source_data.get(feat, df_m_current[feat].mean()))
                         else:
-                            inputs[feat] = st.number_input(label, min_val, max_val, default_val, step=0.01)
+                            min_v, max_v, default_v = 0.0, 1000.0, 0.0
+                        
+                        label = FEATURE_LABELS.get(base_f, base_f)
+                        if is_pm: label += " (por min)"
+                        
+                        if (base_f in INT_FEATURES and not is_pm):
+                            inputs[feat] = st.number_input(label, int(min_v), int(max_v), int(round(default_v)), key=f"sim_{feat}")
+                        else:
+                            inputs[feat] = st.number_input(label, min_v, max_v, default_v, key=f"sim_{feat}")
                 
                 submit_btn = st.form_submit_button("🚀 Generar Diagnóstico", width="stretch")
             
             if submit_btn:
-                # Preparamos el vector de entrada con alta fidelidad
-                full_input = []
-                for f in NUMERIC_FEATURES:
-                    if f in inputs:
-                        val = inputs[f] # Valor modificado en el form
-                    elif f in source_data:
-                        val = source_data[f] # Valor real importado (pero oculto en el form)
-                    else:
-                        val = df_matches[f].mean() # Promedio si no hay datos
-                    full_input.append(float(val))
+                # 1. Construir DataFrame base con promedios
+                input_df = pd.DataFrame(np.zeros((1, len(role_features))), columns=role_features)
                 
-                # Pasamos un DataFrame para evitar avisos de Scikit-Learn sobre nombres de features
-                input_df = pd.DataFrame([full_input], columns=NUMERIC_FEATURES)
+                # Rellenar con promedios del dataset filtrado por el rol seleccionado (si es posible)
+                df_ref = df_matches[df_matches['individualPosition'] == selected_role] if selected_role != 'ALL' else df_matches
+                
+                for feat in role_features:
+                    if feat in df_ref:
+                        input_df[feat] = df_ref[feat].mean()
+                
+                # 2. Sobrescribir con lo que el usuario ajustó en el Simulator
+                for feat, val in inputs.items():
+                    input_df[feat] = val
+                
+                # 3. Escalar y Predecir
                 input_scaled = main_scaler.transform(input_df)
                 
                 if selected_model == "Red Neuronal (MLP)":
@@ -401,12 +485,53 @@ if df_matches is not None:
                 else:
                     prob = models_dict[selected_model]["model"].predict_proba(input_scaled)[0][1]
                 
-                st.markdown(f"## Probabilidad de Victoria: `{float(prob)*100:.1f}%`")
-                st.progress(float(prob))
+                # 4. Mostrar Resultado Premium
+                st.divider()
+                st.markdown(f"### 🎯 Diagnóstico del Oráculo")
                 
-                if prob > 0.6: st.success("Perfil de Victoria: Las métricas sugieren un desempeño dominante.")
-                elif prob < 0.4: st.error("Riesgo de Derrota: Estas métricas coinciden con situaciones de desventaja crítica.")
-                else: st.warning("Resultado Incierto: Juego cerrado o variables equilibradas.")
+                # Gauge Chart
+                fig_gauge = go.Figure(go.Indicator(
+                    mode = "gauge+number",
+                    value = float(prob) * 100,
+                    domain = {'x': [0, 1], 'y': [0, 1]},
+                    title = {'text': "Probabilidad de Victoria (%)", 'font': {'size': 20, 'color': "#00f2ff"}},
+                    gauge = {
+                        'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
+                        'bar': {'color': "#00f2ff"},
+                        'bgcolor': "rgba(255,255,255,0.05)",
+                        'borderwidth': 2,
+                        'bordercolor': "#00f2ff",
+                        'steps': [
+                            {'range': [0, 40], 'color': 'rgba(255, 75, 75, 0.3)'},
+                            {'range': [40, 60], 'color': 'rgba(255, 255, 0, 0.3)'},
+                            {'range': [60, 100], 'color': 'rgba(0, 242, 255, 0.3)'}
+                        ],
+                        'threshold': {
+                            'line': {'color': "#00f2ff", 'width': 4},
+                            'thickness': 0.75,
+                            'value': float(prob) * 100
+                        }
+                    }
+                ))
+                fig_gauge.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': "white", 'family': "Arial"}, height=300)
+                st.plotly_chart(fig_gauge, use_container_width=True)
+                
+                if prob > 0.6: st.success("✅ **Perfil de Victoria:** Estas estadísticas son altamente correlativas con un resultado exitoso para el rol seleccionado.")
+                elif prob < 0.4: st.error("❌ **Riesgo de Derrota:** Desempeño por debajo del umbral crítico calculado por la IA.")
+                else: st.warning("⚖️ **Resultado Ajustado:** El modelo detecta una situación de equilibrio tensional donde cualquier error puede ser fatal.")
+
+        st.divider()
+        with st.expander("🔬 Metodología de Ciencia de Datos (CRISP-DM)"):
+            c_dm1, c_dm2, c_dm3 = st.columns(3)
+            with c_dm1:
+                st.info("**Fase 1-3: Comprensión y Preparación**")
+                st.markdown("- Limpieza de datos (recalibración de AFKs).\n- Ingeniería de Atributos: Métricas normalizadas 'perMinute'.\n- Muestreo estratificado por roles competitivos.")
+            with c_dm2:
+                st.success("**Fase 4-5: Modelado y Evaluación**")
+                st.markdown("- Entrenamiento de 9 algoritmos (Lineales, Árboles, Redes Neuronales).\n- Explicabilidad mediante Permutation Importance (Incluso para Cajas Negras).\n- Validación cruzada y ajuste de hiperparámetros.")
+            with c_dm3:
+                st.warning("**Fase 6: Despliegue**")
+                st.markdown("- Integración en Dashboard Streamlit.\n- Inferencia en tiempo casi-real para predicción táctica.\n- Exportación directa de perfiles de juego al simulador.")
 
     elif mode == "👤 Perfil":
         # Determinamos la lista de jugadores disponibles
@@ -529,22 +654,41 @@ if df_matches is not None:
                 
                 # --- LÓGICA DE MODELO (ESPECIALIZADO O GLOBAL) ---
                 if use_specialized:
-                    # Cargamos modelos específicos (Instantáneo)
-                    curr_models, curr_scaler = load_role_models(m_pos)
-                    if curr_models is None:
-                        curr_models, curr_scaler = models_dict, main_scaler
+                    # Cargamos modelos específicos (Instantáneo) con normalización
+                    curr_bundle, _ = load_role_models(m_pos)
+                    # Si no hay modelo para ese rol, curr_bundle ya fue redirigido a ALL por load_role_models
+                    if curr_bundle is None:
+                        curr_bundle = models_bundle
                 else:
-                    curr_models, curr_scaler = models_dict, main_scaler
+                    curr_bundle = models_bundle
 
-                # --- CALCULAR WIN PROB ---
-                match_v = [match_row[f] for f in NUMERIC_FEATURES]
-                match_df = pd.DataFrame([match_v], columns=NUMERIC_FEATURES)
-                match_scaled = curr_scaler.transform(match_df)
+                # Si no hay modelos cargados, saltamos esta partida
+                if curr_bundle is None or "models" not in curr_bundle:
+                    continue
+
+                # --- CALCULAR WIN PROB CON METODOLOGÍA NUEVA ---
+                # 1. Crear vector conforme a feature_names
+                m_feat_names = curr_bundle["features"]
+                match_vec = pd.DataFrame(np.zeros((1, len(m_feat_names))), columns=m_feat_names)
+                
+                # 2. Poblar métricas (Usando ya las pre-calculadas perMin si existen)
+                for f in m_feat_names:
+                    if f in match_row:
+                        match_vec[f] = match_row[f]
+                    elif f.endswith('_perMin'):
+                        # Fallback por si la fila no las tiene (aunque deberían estar en df_matches)
+                        base_n = f.replace('_perMin', '')
+                        if base_n in match_row:
+                            match_vec[f] = match_row[base_n] / max(1, (match_row['timePlayed'] / 60))
+                
+
+                # 4. Predecir
+                match_scaled = curr_bundle["scaler"].transform(match_vec)
                 
                 if eval_model_hist == "Red Neuronal (MLP)":
-                    m_prob = float(curr_models[eval_model_hist]["model"].predict(match_scaled)[0][0])
+                    m_prob = float(curr_bundle["models"][eval_model_hist]["model"].predict(match_scaled)[0][0])
                 else:
-                    m_prob = curr_models[eval_model_hist]["model"].predict_proba(match_scaled)[0][1]
+                    m_prob = curr_bundle["models"][eval_model_hist]["model"].predict_proba(match_scaled)[0][1]
                 
                 bg_color = "rgba(0, 242, 255, 0.08)" if is_win else "rgba(255, 75, 75, 0.08)"
                 border_color = "#00f2ff" if is_win else "#ff4b4b"
@@ -558,9 +702,9 @@ if df_matches is not None:
                                 <b style='font-size: 18px;'>{match_row['championName']}</b> | {match_row['kills']}/{match_row['deaths']}/{match_row['assists']}
                             </div>
                             <div style='text-align: right; min-width: 200px;'>
-                                <span style='color: #888; font-size: 13px;'>puntuación/win prob:</span> 
+                                <span style='color: #888; font-size: 13px;'>{"🚀 especializ." if use_specialized else "🌍 global"} prob:</span> 
                                 <span style='color: #00f2ff; font-family: monospace; font-size: 18px; font-weight: bold;'>{m_prob*100:.1f}%</span>
-                                <div style='color: #666; font-size: 12px;'>duración: {duration_min}:{duration_sec:02d}</div>
+                                <div style='color: #666; font-size: 12px;'>duración: {duration_min}:{duration_sec:02d} | {m_pos}</div>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
