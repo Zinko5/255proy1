@@ -107,7 +107,7 @@ Para garantizar la calidad de los modelos predictivos, se aplicarán las siguien
 - *Filtrado*: Eliminación de registros con jugadores ausentes (`challenge_hadAfkTeammate == 1`) o remakes (partidas que terminan antes de los 7 minutos) para evitar sesgos por partidas desbalanceadas.
 - *Normalización*: Dado que las partidas tienen duraciones variables (`timePlayed`), métricas como el oro, el daño y los súbditos se estandarizarán a valores por minuto.
 - *Codificación*: Las variables categóricas como `championName` e `individualPosition` se transformarán mediante *One-Hot Encoding*.
-- *Limpieza de Outliers*: Identificación de valores extremos en pings (`totalPings`) o duraciones de partida inusuales que puedan distorsionar la media.
+- *Limpieza de Outliers*: Identificación de valores extremos o duraciones de partida inusuales que puedan distorsionar la media.
 
 == Modelado
 

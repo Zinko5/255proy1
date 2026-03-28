@@ -20,6 +20,7 @@ import os
 import urllib.parse
 import joblib
 from tensorflow.keras.models import load_model
+import json
 
 # CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
@@ -153,6 +154,24 @@ def load_data():
             df_m[f'{metric}_perMin'] = df_m[metric] / duration_min
         
     return df_m, df_p, name_to_id
+
+@st.cache_data
+def load_metrics():
+    path = "metricas_resultados/metricas_modelos.json"
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return {}
+
+def get_best_model_roc(role_metrics):
+    if not role_metrics: return None
+    best_name = None
+    best_roc = -1
+    for m_name, metrics in role_metrics.items():
+        if "ROC-AUC" in metrics and metrics["ROC-AUC"] > best_roc:
+            best_roc = metrics["ROC-AUC"]
+            best_name = m_name
+    return best_name
 
 @st.cache_resource
 def load_role_models(role="ALL"):
@@ -395,7 +414,29 @@ if df_matches is not None:
         
         with col_m1:
             st.subheader("Configuración del Oráculo")
-            selected_model = st.selectbox("Algoritmo de Predicción:", list(models_dict.keys()))
+            
+            # Cargar métricas para el detector de mejor modelo
+            all_metrics = load_metrics()
+            role_metrics = all_metrics.get(selected_role, {})
+            best_model_id = get_best_model_roc(role_metrics)
+            
+            # Mapeo invertido para identificar el label de la UI
+            MAPPING_UI = {
+                "lr": "Regresión Logística", "rf": "Random Forest", "xgb": "XGBoost", "svm": "SVM",
+                "knn": "KNN", "lda": "LDA", "nb": "Naive Bayes", "dt": "Árbol de Decisión", "mlp": "Red Neuronal (MLP)"
+            }
+            
+            model_options = []
+            for m_label in list(models_dict.keys()):
+                m_id = next((k for k, v in MAPPING_UI.items() if v == m_label), None)
+                if m_id == best_model_id:
+                    model_options.append(f"🏆 {m_label}")
+                else:
+                    model_options.append(m_label)
+            
+            orig_selected_model = st.selectbox("Algoritmo de Predicción:", model_options)
+            selected_model = orig_selected_model.replace("🏆 ", "")
+            
             st.markdown(f"**Análisis de Explicabilidad (CRISP-DM Fase 5)**")
             
             # Real-time explainability chart
@@ -420,6 +461,24 @@ if df_matches is not None:
             else:
                 top_features = ['kills', 'deaths', 'goldEarned_perMin', 'visionScore', 'totalDamageDealtToChampions_perMin', 'challenge_teamDamagePercentage']
                 st.info("💡 Calculando patrones no-lineales complejos.")
+
+            # --- SECCIÓN DE MÉTRICAS DEL MODELO ---
+            m_id_selected = next((k for k, v in MAPPING_UI.items() if v == selected_model), None)
+            if m_id_selected and m_id_selected in role_metrics:
+                st.markdown("#### 📊 Métricas de Validación")
+                m = role_metrics[m_id_selected]
+                c_met1, c_met2 = st.columns(2)
+                with c_met1:
+                    st.metric("ROC-AUC", f"{m['ROC-AUC']:.3f}")
+                    st.metric("Accuracy", f"{m['Accuracy']*100:.1f}%")
+                with c_met2:
+                    st.metric("F1-Score", f"{m['F1-Score']:.3f}")
+                    st.metric("Presición", f"{m['Presición']:.3f}")
+                
+                # Matriz de Confusión
+                cm_path = f"metricas_resultados/matrices/{selected_role}_{m_id_selected}.png"
+                if os.path.exists(cm_path):
+                    st.image(cm_path, caption=f"Matriz de Confusión: {selected_model}", use_container_width=True)
 
         with col_m2:
             st.subheader(f"🔮 Simulador Dinámico: {selected_model}")

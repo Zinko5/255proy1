@@ -1,0 +1,6 @@
+ROC-AUC
+F1-Score
+Matriz de Confusión
+Accuracy
+Presición
+Recall
