@@ -21,6 +21,10 @@ import urllib.parse
 import joblib
 from tensorflow.keras.models import load_model
 import json
+import mlflow
+from mlflow.tracking import MlflowClient
+from datetime import datetime
+import math
 
 # CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
@@ -110,54 +114,74 @@ OTHER_NUMERIC = [
     'totalPings'                            
 ]
 
+# --- MLOPS UTILS ---
+def get_available_versions():
+    client = MlflowClient()
+    try:
+        experiment = client.get_experiment_by_name("League_Learning_AI")
+        if not experiment: return []
+        # Corregido: experiment_ids espera una lista de strings
+        runs = client.search_runs(experiment_ids=[experiment.experiment_id], order_by=["attributes.start_time DESC"])
+        return [{"name": r.data.tags.get("mlflow.runName", r.info.run_id), "id": r.info.run_id, "start_time": r.info.start_time} for r in runs]
+    except:
+        return []
+
+@st.cache_resource
+def get_version_assets(run_id):
+    if not run_id: return None, None, None
+    client = MlflowClient()
+    try:
+        modelos_path = client.download_artifacts(run_id, "modelos")
+        metricas_path = client.download_artifacts(run_id, "metricas")
+        data_folder = client.download_artifacts(run_id, "data_snapshot")
+        return modelos_path, metricas_path, data_folder
+    except:
+        return None, None, None
+
 @st.cache_data
-def load_data():
-    df_m = pd.read_csv('../league_data.csv') if os.path.exists('../league_data.csv') else None
-    df_p = pd.read_csv('../todosJugadores.csv') if os.path.exists('../todosJugadores.csv') else None
+def load_data(run_id=None):
+    path_m = '../data/league_data.csv'
+    path_p = '../data/todosJugadores.csv'
     
+    if run_id:
+        _, _, mlflow_data_path = get_version_assets(run_id)
+        if mlflow_data_path:
+            path_m = os.path.join(mlflow_data_path, "league_data.csv")
+            path_p = os.path.join(mlflow_data_path, "todosJugadores.csv")
+        
+    df_m = pd.read_csv(path_m) if os.path.exists(path_m) else None
+    df_p = pd.read_csv(path_p) if os.path.exists(path_p) else None
+    
+    name_to_id = {}
     if df_p is not None:
-        # 1. Asegurar que tenemos fecha_actualizacion como datetime si existe
         if 'fecha_actualizacion' in df_p.columns:
             df_p['fecha_actualizacion'] = pd.to_datetime(df_p['fecha_actualizacion'])
             df_p = df_p.sort_values('fecha_actualizacion')
-        
-        # 2. Mapeo de todos los nombres históricos a su ID único
-        # Esto sirve para asociar partidas viejas (con nombre viejo) al ID correcto
         name_to_id = df_p.set_index('nombre')['id'].to_dict()
-        
-        # 3. Quedarse con un solo registro por ID (el más reciente)
-        # Esto será nuestro "perfil único"
         df_p_unique = df_p.drop_duplicates(subset='id', keep='last').copy()
-        
-        # 4. Mapeo de ID a nombre canonical (el más reciente)
         id_to_canonical_name = df_p_unique.set_index('id')['nombre'].to_dict()
         
         if df_m is not None:
-            # 5. Normalizar df_matches: asociar cada partida a un ID y luego al nombre canonical
             df_m['player_id'] = df_m['jugador'].map(name_to_id)
-            # Si un jugador no está en la tabla de jugadores, conservamos su nombre como ID temporal
             df_m['player_id'] = df_m['player_id'].fillna(df_m['jugador'])
-            
-            # Reemplazar el nombre del jugador en las partidas por su nombre más reciente
             df_m['jugador'] = df_m['player_id'].map(id_to_canonical_name).fillna(df_m['jugador'])
-        
-        # Retornamos los datos procesados
         df_p = df_p_unique
 
     if df_m is not None:
         df_m = df_m[df_m['challenge_hadAfkTeammate'] == 0]
         df_m = df_m[df_m['timePlayed'] > 420]
-        
-        # [CRISP-DM] Fase 3: Preparación de Datos (Sincronizado con modelado_lol.py)
         duration_min = df_m['timePlayed'] / 60
         for metric in BASE_METRICS:
             df_m[f'{metric}_perMin'] = df_m[metric] / duration_min
-        
     return df_m, df_p, name_to_id
 
 @st.cache_data
-def load_metrics():
+def load_model_metrics(run_id=None):
     path = "metricas_resultados/metricas_modelos.json"
+    if run_id:
+        _, mlflow_metricas, _ = get_version_assets(run_id)
+        if mlflow_metricas: path = os.path.join(mlflow_metricas, "metricas_modelos.json")
+    
     if os.path.exists(path):
         with open(path, "r") as f:
             return json.load(f)
@@ -174,64 +198,66 @@ def get_best_model_roc(role_metrics):
     return best_name
 
 @st.cache_resource
-def load_role_models(role="ALL"):
-    # Normalización de roles para coincidir con carpetas
+def load_role_models(role="ALL", run_id=None):
     role = str(role).upper()
     MAPPING_ROLES = {"MID": "MIDDLE", "SUPPORT": "UTILITY", "ADC": "BOTTOM", "BOT": "BOTTOM"}
     role = MAPPING_ROLES.get(role, role)
     
     base_path = f"modelos/{role}"
+    if run_id:
+        mlflow_modelos, _, _ = get_version_assets(run_id)
+        if mlflow_modelos: base_path = os.path.join(mlflow_modelos, role)
+
     if not os.path.exists(base_path) or not os.path.exists(f"{base_path}/feature_names.joblib"):
-        # Si el rol específico no existe, intentamos cargar el modelo ALL
-        if role != "ALL":
-            return load_role_models("ALL")
+        if role != "ALL": return load_role_models("ALL", run_id)
         return None, None
         
     try:
-        # Cargamos metadata de features
         feature_names = joblib.load(f"{base_path}/feature_names.joblib")
-        
         scaler = joblib.load(f"{base_path}/scaler.joblib")
         importances_dict = joblib.load(f"{base_path}/importances.joblib")
         
-        # Mapeo de nombres internos a etiquetas para UI
-        MAPPING = {
-            "Regresión Logística": "lr",
-            "Random Forest": "rf",
-            "XGBoost": "xgb",
-            "SVM": "svm",
-            "KNN": "knn",
-            "LDA": "lda",
-            "Naive Bayes": "nb",
-            "Árbol de Decisión": "dt",
-            "Red Neuronal (MLP)": "mlp"
-        }
-        
+        MAPPING = {"Regresión Logística": "lr", "Random Forest": "rf", "XGBoost": "xgb", "SVM": "svm", "KNN": "knn", "LDA": "lda", "Naive Bayes": "nb", "Árbol de Decisión": "dt", "Red Neuronal (MLP)": "mlp"}
         models = {}
         for label, file_id in MAPPING.items():
             path = f"{base_path}/{file_id}.joblib" if file_id != "mlp" else f"{base_path}/mlp.keras"
             if os.path.exists(path):
                 m_obj = joblib.load(path) if file_id != "mlp" else load_model(path)
                 m_info = {"model": m_obj}
-                
-                # Importancia unificada (Permutación) desde el archivo
-                if file_id in importances_dict:
-                    vals = importances_dict[file_id]
-                else:
-                    vals = np.zeros(len(feature_names))
-                    
+                vals = importances_dict.get(file_id, np.zeros(len(feature_names)))
                 m_info["importances"] = pd.Series(vals, index=feature_names).sort_values(ascending=False)
                 models[label] = m_info
-        
-        return {"models": models, "scaler": scaler, "features": feature_names}, scaler
-        
         return {"models": models, "scaler": scaler, "features": feature_names}, scaler
     except Exception as e:
         st.error(f"Error cargando modelos para {role}: {e}")
         return None, None
 
 # APP LOGIC
-df_matches, df_players, name_mapping = load_data()
+# --- MLOps: Selector de Versiones ---
+st.sidebar.header("🕹️ Navegación")
+versions = get_available_versions()
+version_options = ["Producción (Actual)"] + [v["name"] for v in versions]
+selected_v_name = st.sidebar.selectbox(
+    "🧠 Versión de Inteligencia:", 
+    version_options,
+    help="Permite elegir entre diferentes versiones históricas de los modelos y el dataset entrenado con MLflow."
+)
+
+if selected_v_name != "Producción (Actual)":
+    v_info = next(v for v in versions if v["name"] == selected_v_name)
+    current_run_id = v_info["id"]
+    dt_run = datetime.fromtimestamp(v_info["start_time"] / 1000)
+    version_date_display = dt_run.strftime("%d %b %Y")
+else:
+    current_run_id = None
+    # Dinámico: Usamos la fecha de entrenamiento local (Carpeta Modelos)
+    try:
+        mtime = os.path.getmtime("modelos/ALL/scaler.joblib")
+        version_date_display = datetime.fromtimestamp(mtime).strftime("%d %b %Y")
+    except:
+        version_date_display = "awoo"
+
+df_matches, df_players, name_mapping = load_data(current_run_id)
 
 # 1. SINCRONIZACIÓN DE URL -> ESTADO (Al cargar)
 if "profile" in st.query_params:
@@ -278,17 +304,9 @@ if df_matches is not None:
     st.sidebar.subheader("🎯 Configuración IA")
     roles_list = ["ALL", "TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
     role_idx = roles_list.index(st.session_state.selected_simulator_role)
-    selected_role = st.sidebar.selectbox(
-        "Rol del modelo (Simulador):", 
-        roles_list,
-        index=role_idx,
-        help="Carga los modelos entrenados específicamente para este rol.",
-        key="role_selector_sidebar"
-    )
+    selected_role = st.sidebar.selectbox("Rol del modelo (Simulador):", roles_list, index=role_idx, help="Carga los modelos entrenados específicamente para este rol.", key="role_selector_sidebar")
     st.session_state.selected_simulator_role = selected_role
-    
-    # Cargamos modelos (Instantáneo desde modelos/)
-    models_bundle, _ = load_role_models(selected_role)
+    models_bundle, _ = load_role_models(selected_role, current_run_id)
     
     if models_bundle is None:
         st.sidebar.warning("⚠️ Modelos no encontrados. Ejecute modelado_lol.py primero.")
@@ -409,14 +427,24 @@ if df_matches is not None:
                     st.rerun()
 
     elif mode == "🧠 IA & Simulador":
-        st.header("🧠 Inteligencia Artificial Multialgoritmo")
+        st.markdown(f"""
+            <div style='display: flex; justify-content: space-between; align-items: baseline;'>
+                <h2>🧠 IA & SIMULADOR MULTIALGORITMO</h2>
+                <div style='text-align: right;'>
+                    <span style='color: #ff4b4b; font-family: "Orbitron", sans-serif; font-size: 1.2rem; font-weight: bold;'>
+                        📅 Fecha del modelo: {version_date_display}
+                    </span>
+                </div>
+            </div>
+            <hr style='margin: 0 0 20px 0; border: 0; border-top: 1px solid rgba(0,242,255,0.1);'>
+        """, unsafe_allow_html=True)
         col_m1, col_m2 = st.columns([1, 2])
         
         with col_m1:
             st.subheader("Configuración del Oráculo")
             
-            # Cargar métricas para el detector de mejor modelo
-            all_metrics = load_metrics()
+            # Cargar métricas (Desde MLflow si se selecciona versión)
+            all_metrics = load_model_metrics(current_run_id)
             role_metrics = all_metrics.get(selected_role, {})
             best_model_id = get_best_model_roc(role_metrics)
             
@@ -492,11 +520,13 @@ if df_matches is not None:
                     st.rerun()
             
             with st.form("simulator_form"):
+                # --- Estadísticas de Seguridad (Robustez contra NaN) ---
+                df_m_current = df_matches[df_matches['individualPosition'] == selected_role] if selected_role != 'ALL' else df_matches
+                # Si el rol está vacío en el CSV nuevo, usamos el global como fallback para los rangos de los inputs
+                df_stats_ref = df_m_current if len(df_m_current) > 0 else df_matches
+                
                 inputs = {}
                 cols = st.columns(2)
-                
-                # Obtener subsegmento de datos para límites de sliders (según el rol del simulador)
-                df_m_current = df_matches[df_matches['individualPosition'] == selected_role] if selected_role != 'ALL' else df_matches
                 
                 # Mostrar solo las Top 6 variables que determinan el resultado para ESTE modelo
                 for i, feat in enumerate(top_features[:6]):
@@ -504,22 +534,32 @@ if df_matches is not None:
                         is_pm = feat.endswith('_perMin')
                         base_f = feat.replace('_perMin', '') if is_pm else feat
                         
-                        if feat in df_m_current:
-                            min_v = float(df_m_current[feat].min())
-                            max_v = float(df_m_current[feat].max())
-                            default_v = float(source_data.get(feat, df_m_current[feat].mean()))
-                        else:
-                            min_v, max_v, default_v = 0.0, 1000.0, 0.0
-                        
+                        # Cálculo seguro de valores (Evita NaN)
+                        try:
+                            min_val = float(df_stats_ref[feat].min())
+                            max_val = float(df_stats_ref[feat].max())
+                            avg_val = float(df_stats_ref[feat].mean())
+                            
+                            # Si los valores siguen siendo NaN o infinitos por alguna razón
+                            if not np.isfinite(min_val): min_val, max_val, avg_val = 0.0, 100.0, 0.0
+                            if min_val == max_val: max_val = min_val + 1.0
+                        except:
+                            min_val, max_val, avg_val = 0.0, 100.0, 0.0
+
                         label = FEATURE_LABELS.get(base_f, base_f)
                         if is_pm: label += " (por min)"
                         
+                        # Inputs numéricos con protección de tipo
                         if (base_f in INT_FEATURES and not is_pm):
-                            inputs[feat] = st.number_input(label, int(min_v), int(max_v), int(round(default_v)), key=f"sim_{feat}")
+                            inputs[feat] = st.number_input(label, value=int(round(avg_val)), min_value=int(math.floor(min_val)), max_value=int(math.ceil(max_val)), step=1, key=f"sim_{feat}")
                         else:
-                            inputs[feat] = st.number_input(label, min_v, max_v, default_v, key=f"sim_{feat}")
+                            inputs[feat] = st.number_input(label, value=float(avg_val), min_value=float(min_val), max_value=float(max_val), step=0.1, format="%.2f", key=f"sim_{feat}")
                 
-                submit_btn = st.form_submit_button("🚀 Generar Diagnóstico", width="stretch")
+                # Advertencia si el rol no tiene datos
+                if len(df_m_current) == 0 and selected_role != "ALL":
+                    st.warning(f"⚠️ El dataset actual no contiene partidas de {selected_role}. Usando límites globales.")
+
+                submit_btn = st.form_submit_button("🚀 Generar Diagnóstico", width=300)
             
             if submit_btn:
                 # 1. Construir DataFrame base con promedios
@@ -528,9 +568,12 @@ if df_matches is not None:
                 # Rellenar con promedios del dataset filtrado por el rol seleccionado (si es posible)
                 df_ref = df_matches[df_matches['individualPosition'] == selected_role] if selected_role != 'ALL' else df_matches
                 
+                # Seguridad: Si el rol está vacío, usamos estadísticas globales para rellenar huecos
+                df_ref_safe = df_ref if len(df_ref) > 0 else df_matches
+                
                 for feat in role_features:
-                    if feat in df_ref:
-                        input_df[feat] = df_ref[feat].mean()
+                    if feat in df_ref_safe:
+                        input_df[feat] = df_ref_safe[feat].mean()
                 
                 # 2. Sobrescribir con lo que el usuario ajustó en el Simulator
                 for feat, val in inputs.items():
@@ -713,9 +756,8 @@ if df_matches is not None:
                 
                 # --- LÓGICA DE MODELO (ESPECIALIZADO O GLOBAL) ---
                 if use_specialized:
-                    # Cargamos modelos específicos (Instantáneo) con normalización
-                    curr_bundle, _ = load_role_models(m_pos)
-                    # Si no hay modelo para ese rol, curr_bundle ya fue redirigido a ALL por load_role_models
+                    # Cargamos modelos específicos
+                    curr_bundle, _ = load_role_models(m_pos, current_run_id)
                     if curr_bundle is None:
                         curr_bundle = models_bundle
                 else:

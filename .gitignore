@@ -1,32 +1,35 @@
-# Python
+# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
-env/
 .env
-.venv
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.mypy_cache/
-.pytest_cache/
 
-# Data & Models
-api_key.txt
-*.png
-*.pdf
+# --- Modelos y Datos Pesados (Manejados por DVC) ---
 *.joblib
 *.keras
-*.csv
 *.h5
+*.csv
+modelos/
+data/
 
-# OS
+# --- MLflow (Metadatos sí, Artefactos no) ---
+# Permitimos ver los parámetros y métricas en Git 
+# pero ignoramos los modelos pesados que MLflow duplica internamente
+mlruns/**/artifacts/
+
+# --- DVC ---
+# Ignoramos la caché interna de DVC
+.dvc/cache
+.dvc/tmp/
+
+# --- Documentación y Salidas ---
+*.pdf
+*.log
 .DS_Store
-Thumbs.db
+codigo/.streamlit/
+codigo/temp_version/
+
+# --- Riot API ---
+api_key.txt
+codigo/api_key.txt

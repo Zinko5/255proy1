@@ -139,7 +139,7 @@ def main():
     # Cambiar al directorio del script
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
-    csv_path = '../league_data.csv'
+    csv_path = '../data/league_data.csv'
     if not os.path.exists(csv_path):
         print(f"Error: No se encontró {csv_path}")
         return

@@ -17,6 +17,10 @@ from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Input
+import mlflow
+import mlflow.sklearn
+from datetime import datetime
+import sacar_metricas
 
 warnings.filterwarnings('ignore')
 
@@ -153,16 +157,35 @@ def train_and_save_role(df_source, role):
 
 def main():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    df = pd.read_csv('../league_data.csv')
-    df = df[df['challenge_hadAfkTeammate'] == 0]
-    df = df[df['timePlayed'] > 420]
     
-    duration_min = df['timePlayed'] / 60
-    for metric in BASE_METRICS:
-        df[f'{metric}_perMin'] = df[metric] / duration_min
+    # [MLOPS] Iniciar Experimento
+    mlflow.set_experiment("League_Learning_AI")
     
-    for role in ROLES:
-        train_and_save_role(df, role)
+    with mlflow.start_run(run_name=f"Training_{datetime.now().strftime('%Y-%m-%d_%H-%M')}"):
+        df = pd.read_csv('../data/league_data.csv')
+        df = df[df['challenge_hadAfkTeammate'] == 0]
+        df = df[df['timePlayed'] > 420]
         
+        duration_min = df['timePlayed'] / 60
+        for metric in BASE_METRICS:
+            df[f'{metric}_perMin'] = df[metric] / duration_min
+        
+        # Log de los datasets usados (Trazabilidad completa)
+        mlflow.log_artifact('../data/league_data.csv', 'data_snapshot')
+        mlflow.log_artifact('../data/todosJugadores.csv', 'data_snapshot')
+        
+        for role in ROLES:
+            train_and_save_role(df, role)
+            
+        # [MLOPS] Generar y logear métricas automáticamente
+        print("\n--- GENERANDO MÉTRICAS FINALES ---")
+        sacar_metricas.main()
+        
+        # Log de artefactos (Modelos y Métricas)
+        mlflow.log_artifacts('../modelos', 'modelos')
+        mlflow.log_artifacts('../metricas', 'metricas')
+        
+        print(f"\n✅ Pipeline MLOps completado. Run ID: {mlflow.active_run().info.run_id}")
+
 if __name__ == "__main__":
     main()
