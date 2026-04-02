@@ -170,9 +170,8 @@ def main():
         for metric in BASE_METRICS:
             df[f'{metric}_perMin'] = df[metric] / duration_min
         
-        # Log de los datasets usados (Trazabilidad completa)
+        # Log de los datasets usados (Trazabilidad completa: Solo league_data importa para reproducir)
         mlflow.log_artifact('../data/league_data.csv', 'data_snapshot')
-        mlflow.log_artifact('../data/todosJugadores.csv', 'data_snapshot')
         
         for role in ROLES:
             train_and_save_role(df, role)

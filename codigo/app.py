@@ -140,14 +140,16 @@ def get_version_assets(run_id):
 
 @st.cache_data
 def load_data(run_id=None):
-    path_m = '../data/league_data.csv'
+    # El archivo de jugadores siempre lo leemos local para mantener el ranking/perfiles actualizados
+    # e independientes de la versión de inteligencia seleccionada (ya que es solo estética).
     path_p = '../data/todosJugadores.csv'
+    path_m = '../data/league_data.csv'
     
     if run_id:
         _, _, mlflow_data_path = get_version_assets(run_id)
         if mlflow_data_path:
             path_m = os.path.join(mlflow_data_path, "league_data.csv")
-            path_p = os.path.join(mlflow_data_path, "todosJugadores.csv")
+            # No sobreescribimos path_p con el de MLflow para cumplir con el deseo del usuario
         
     df_m = pd.read_csv(path_m) if os.path.exists(path_m) else None
     df_p = pd.read_csv(path_p) if os.path.exists(path_p) else None
@@ -503,10 +505,19 @@ if df_matches is not None:
                     st.metric("F1-Score", f"{m['F1-Score']:.3f}")
                     st.metric("Presición", f"{m['Presición']:.3f}")
                 
-                # Matriz de Confusión
-                cm_path = f"metricas_resultados/matrices/{selected_role}_{m_id_selected}.png"
+                # Matriz de Confusión (Sincronizada con MLflow)
+                cm_filename = f"{selected_role}_{m_id_selected}.png"
+                cm_path = os.path.join("metricas_resultados", "matrices", cm_filename)
+                
+                if current_run_id:
+                    _, mlflow_metricas, _ = get_version_assets(current_run_id)
+                    if mlflow_metricas:
+                        cm_path = os.path.join(mlflow_metricas, "matrices", cm_filename)
+
                 if os.path.exists(cm_path):
                     st.image(cm_path, caption=f"Matriz de Confusión: {selected_model}", use_container_width=True)
+                else:
+                    st.info("ℹ️ Matriz de confusión no disponible para esta versión/modelo.")
 
         with col_m2:
             st.subheader(f"🔮 Simulador Dinámico: {selected_model}")
