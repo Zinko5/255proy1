@@ -19,7 +19,7 @@
 
 = Introducción
 
-El presente documento detalla el desarrollo de un proyecto de análisis de datos enfocado en el videojuego League of Legends (LoL). El objetivo principal es transformar un conjunto de datos masivo y complejo, proveniente de partidas competitivas, en información estructurada y modelos predictivos accionables. Para lograrlo, se implementa una metodología rigurosa de Ciencia de Datos, aplicando técnicas avanzadas de preprocesamiento, modelado estadístico y aprendizaje automático (Machine Learning).
+El presente documento detalla el desarrollo de un proyecto de análisis de datos enfocado en el videojuego League of Legends (LoL). El objetivo principal es transformar un conjunto de datos masivo y complejo, proveniente de partidas competitivas, en información estructurada y modelos predictivos accionables. Para lograrlo, se implementa una metodología rigurosa de Ciencia de Datos, aplicando técnicas avanzadas de preprocesamiento, modelado estadístico y aprendizaje supervisado (Machine Learning).
 
 El proyecto aborda la necesidad de extraer patrones significativos de un entorno dinámico y de alta dimensionalidad, donde las interacciones entre múltiples variables (kills, oro, visión, objetivos) determinan el resultado final. Se utilizan diversos algoritmos, desde modelos lineales hasta redes neuronales, para evaluar diferentes enfoques de predicción y seleccionar el más robusto.
 
@@ -37,11 +37,12 @@ En el entorno competitivo de League of Legends, la planificación estratégica y
 
 = Problemática
 
-En el entorno competitivo de League of Legends, los jugadores identifican los factores determinantes de la victoria mediante la revisión manual de las estadísticas descriptivas generadas en cada partida. Los indicadores técnicos —distribuidos en categorías de visión, economía, objetivos y combate— se presentan en formatos agregados y aislados en las pantallas de resumen de partida y en los registros históricos disponibles.
+En el entorno competitivo de League of Legends, los jugadores identifican los factores determinantes de la victoria mediante la revisión manual de las estadísticas descriptivas generadas en cada partida. Los indicadores técnicos se presentan en formatos agregados y aislados en las pantallas de resumen de partida y en los registros históricos disponibles.
 
 == Árbol de problema
 
-- *Problema Central*: Identificación de factores determinantes de la victoria mediante revisión manual de estadísticas descriptivas en League of Legends.
+- *Problema Central*: Los jugadores analizan de forma manual los factores determinantes de la victoria en League of Legends a través de estadísticas descriptivas.
+// - *Problema Central*: Identificación de factores determinantes de la victoria mediante revisión manual de estadísticas descriptivas en League of Legends.
 - *Causas*:
   - Presentación de indicadores técnicos en valores agregados y aislados por categoría en las pantallas de resumen de partida.
   - Estructura de los datos de rendimiento con múltiples variables simultáneas en cada partida.
