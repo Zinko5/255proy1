@@ -34,7 +34,7 @@ ROLES = ['ALL', 'TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']
 MODEL_NAMES = ["lr", "rf", "xgb", "knn", "lda", "nb", "dt", "svm"]
 
 # Directorios de salida
-OUTPUT_DIR = "metricas_resultados"
+OUTPUT_DIR = "../metricas"
 MATRICES_DIR = os.path.join(OUTPUT_DIR, "matrices")
 os.makedirs(MATRICES_DIR, exist_ok=True)
 
@@ -56,7 +56,7 @@ def evaluate_role_models(df_source, role):
     # Mismo split que en modelado_lol.py
     _, X_test_raw, _, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
     
-    base_path = f"modelos/{role}"
+    base_path = f"../modelos/{role}"
     if not os.path.exists(base_path):
         print(f"No se encontró el directorio de modelos para {role}")
         return None

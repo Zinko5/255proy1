@@ -17,6 +17,7 @@ from tensorflow.keras.layers import Dense, Dropout
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import urllib.parse
 import joblib
 from tensorflow.keras.models import load_model
@@ -25,6 +26,8 @@ import mlflow
 from mlflow.tracking import MlflowClient
 from datetime import datetime
 import math
+
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
 # CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
@@ -197,7 +200,7 @@ def load_data(run_id=None):
 
 @st.cache_data
 def load_model_metrics(run_id=None):
-    path = "metricas_resultados/metricas_modelos.json"
+    path = "../metricas/metricas_modelos.json"
     if run_id:
         _, mlflow_metricas, _ = get_version_assets(run_id)
         if mlflow_metricas: path = os.path.join(mlflow_metricas, "metricas_modelos.json")
@@ -223,7 +226,7 @@ def load_role_models(role="ALL", run_id=None):
     MAPPING_ROLES = {"MID": "MIDDLE", "SUPPORT": "UTILITY", "ADC": "BOTTOM", "BOT": "BOTTOM"}
     role = MAPPING_ROLES.get(role, role)
     
-    base_path = f"modelos/{role}"
+    base_path = f"../modelos/{role}"
     if run_id:
         mlflow_modelos, _, _ = get_version_assets(run_id)
         if mlflow_modelos: base_path = os.path.join(mlflow_modelos, role)
@@ -272,7 +275,7 @@ else:
     current_run_id = None
     # Dinámico: Usamos la fecha de entrenamiento local (Carpeta Modelos)
     try:
-        mtime = os.path.getmtime("modelos/ALL/scaler.joblib")
+        mtime = os.path.getmtime("../modelos/ALL/scaler.joblib")
         version_date_display = datetime.fromtimestamp(mtime).strftime("%d %b %Y")
     except:
         version_date_display = "awoo"
@@ -524,7 +527,7 @@ if df_matches is not None:
                 
                 # Matriz de Confusión (Sincronizada con MLflow)
                 cm_filename = f"{selected_role}_{m_id_selected}.png"
-                cm_path = os.path.join("metricas_resultados", "matrices", cm_filename)
+                cm_path = os.path.join("../metricas", "matrices", cm_filename)
                 
                 if current_run_id:
                     _, mlflow_metricas, _ = get_version_assets(current_run_id)

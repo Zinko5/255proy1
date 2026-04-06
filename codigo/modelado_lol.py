@@ -23,6 +23,8 @@ from datetime import datetime
 import sacar_metricas
 
 warnings.filterwarnings('ignore')
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
 # ---------------------------------------------------------
 # [CRISP-DM] Fase 1 & 2: Comprensión del Negocio y Datos
@@ -142,7 +144,7 @@ def train_and_save_role(df_source, role):
     importances_dict["mlp"] = r_mlp.importances_mean.tolist()
 
     # [CRISP-DM] Fase 6: Despliegue
-    base_path = f"modelos/{role}"
+    base_path = f"../modelos/{role}"
     if not os.path.exists(base_path): os.makedirs(base_path)
     
     joblib.dump(scaler, f"{base_path}/scaler.joblib")
@@ -156,7 +158,6 @@ def train_and_save_role(df_source, role):
     print(f"✅ Artefactos guardados para {role}.")
 
 def main():
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
     # [MLOPS] Iniciar Experimento
     mlflow.set_experiment("League_Learning_AI")
