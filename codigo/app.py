@@ -86,8 +86,26 @@ FEATURE_LABELS = {
     'challenge_goldPerMinute': 'Oro por Minuto',
     'timePlayed': 'Tiempo Jugado (seg)',
     'side': 'Lado del Mapa',
-    'individualPosition': 'Posición'
+    'individualPosition': 'Posición',
+    'championName': 'Campeón',
+    'win': 'Resultado',
+    'match_id': 'ID de Partida',
+    'jugador': 'Invocador',
+    'player_id': 'ID de Jugador',
+    'gameCreation': 'Fecha de Creación',
+    'challenge_hadAfkTeammate': 'Compañero AFK'
 }
+
+def get_feature_label(name):
+    """Retorna el nombre en lenguaje natural de una variable, manejando sufijos _perMin."""
+    if name in FEATURE_LABELS:
+        return FEATURE_LABELS[name]
+    if name.endswith('_perMin'):
+        base = name.replace('_perMin', '')
+        if base in FEATURE_LABELS:
+            return f"{FEATURE_LABELS[base]} (por min)"
+        return f"{base.capitalize()} (por min)"
+    return name.replace('_', ' ').capitalize()
 
 # [CRISP-DM] Sincronización de preparación de datos
 BASE_METRICS = [
@@ -328,7 +346,7 @@ if df_matches is not None:
     
     # Usar el estado para el radio button
     mode = st.sidebar.radio("Sección:", 
-                            ["🔥 Inicio / Rankings", "🧠 IA & Simulador", "📊 Metajuego", "👤 Perfil"],
+                            ["🔥 Inicio / Rankings", "🧠 IA & Simulador", "📊 Estadísticas Generales", "👤 Perfil"],
                             key="nav_radio")
     
     # Sincronizar cambios manuales del radio al URL y al modo
@@ -361,7 +379,7 @@ if df_matches is not None:
         
         # --- RANKING DE JUGADORES (Paginación 25 por página) ---
         if df_players is not None:
-            st.markdown("<h2 style='text-align:center;'>🏆 Rankings Globales (LAS)</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align:center;'>🏆 Rankings Globales</h2>", unsafe_allow_html=True)
             
             # Ordenar por Tier (Challenger > Grandmaster > Master ...) y luego LPs
             tier_order = {'CHALLENGER': 1, 'GRANDMASTER': 2, 'MASTER': 3, 'DIAMOND': 4, 'EMERALD': 5, 'PLATINUM': 6}
@@ -379,20 +397,20 @@ if df_matches is not None:
             
             page_data = df_players_sorted.iloc[start_idx:end_idx]
             
-            # Dibujar Tabla Estilizada
-            st.markdown("""
-                <div style='background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px;'>
-                    <table style='width: 100%; color: white; border-collapse: collapse;'>
-                        <tr style='border-bottom: 2px solid #00f2ff;'>
-                            <th style='padding: 10px; text-align: left;'>#</th>
-                            <th style='padding: 10px; text-align: left;'>Invocador</th>
-                            <th style='padding: 10px; text-align: left;'>Rango</th>
-                            <th style='padding: 10px; text-align: left;'>LPs</th>
-                            <th style='padding: 10px; text-align: left;'>Winrate</th>
-                        </tr>
-            """, unsafe_allow_html=True)
+            # Dibujar Tabla Estilizada - Consolidada para evitar problemas de alineación
+            table_html = """<div style='background: rgba(0,0,0,0.25); border-radius: 15px; padding: 20px; border: 1px solid rgba(0,242,255,0.1); box-shadow: 0 4px 15px rgba(0,0,0,0.3);'>
+<table style='width: 100%; color: white; border-collapse: collapse; table-layout: fixed;'>
+<thead>
+<tr style='border-bottom: 2px solid #00f2ff; font-family: "Orbitron", sans-serif; letter-spacing: 1px;'>
+<th style='padding: 12px; text-align: left; width: 60px;'>#</th>
+<th style='padding: 12px; text-align: left;'>Invocador</th>
+<th style='padding: 12px; text-align: left; width: 220px;'>Rango</th>
+<th style='padding: 12px; text-align: left; width: 120px;'>LPs</th>
+<th style='padding: 12px; text-align: left; width: 120px;'>Winrate</th>
+</tr>
+</thead>
+<tbody>"""
             
-            import urllib.parse
             for i, row in page_data.iterrows():
                 rank_num = i + 1
                 color = "#f7ff00" if rank_num <= 3 else "white"
@@ -401,17 +419,16 @@ if df_matches is not None:
                 profile_url = f"?nav=👤+Perfil&profile={e_name}"
                 
                 winrate = (row['wins'] / (row['wins'] + row['losses'])) * 100
-                st.markdown(f"""
-                    <tr style='border-bottom: 1px solid rgba(255,255,255,0.1);'>
-                        <td style='padding: 8px; color: {color}; font-weight: bold;'>{rank_num}</td>
-                        <td style='padding: 8px;'><b><a href='{profile_url}' target='_self' style='color:#00f2ff; text-decoration:none;'>{row['nombre']}</a></b></td>
-                        <td style='padding: 8px;'>{row['tier']} {row['rank']}</td>
-                        <td style='padding: 8px; color: #00f2ff;'>{row['LPs actuales']}</td>
-                        <td style='padding: 8px;'>{winrate:.1f}%</td>
-                    </tr>
-                """, unsafe_allow_html=True)
+                table_html += f"""<tr style='border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.3s;'>
+<td style='padding: 12px; color: {color}; font-weight: bold;'>{rank_num}</td>
+<td style='padding: 12px;'><b><a href='{profile_url}' target='_self' style='color:#00f2ff; text-decoration:none;'>{row['nombre']}</a></b></td>
+<td style='padding: 12px;'>{row['tier']} {row['rank']}</td>
+<td style='padding: 12px; color: #00f2ff; font-weight: 600;'>{row['LPs actuales']}</td>
+<td style='padding: 12px; font-weight: 600;'>{winrate:.1f}%</td>
+</tr>"""
             
-            st.markdown("</table></div>", unsafe_allow_html=True)
+            table_html += "</tbody></table></div>"
+            st.markdown(table_html, unsafe_allow_html=True)
             
             # Controles de Paginación
             st.write("---")
@@ -476,7 +493,7 @@ if df_matches is not None:
                 
                 # Plotly Bar Chart for better aesthetics
                 chart_data = imp_series.head(10).copy()
-                chart_data.index = [FEATURE_LABELS.get(x, x) for x in chart_data.index]
+                chart_data.index = [get_feature_label(x) for x in chart_data.index]
                 fig_imp = px.bar(
                     x=chart_data.values[::-1],
                     y=chart_data.index[::-1],
@@ -557,14 +574,13 @@ if df_matches is not None:
                         except:
                             min_val, max_val, avg_val = 0.0, 100.0, 0.0
 
-                        label = FEATURE_LABELS.get(base_f, base_f)
-                        if is_pm: label += " (por min)"
+                        label = get_feature_label(feat)
                         
                         # Inputs numéricos con protección de tipo
                         if (base_f in INT_FEATURES and not is_pm):
                             inputs[feat] = st.number_input(label, value=int(round(avg_val)), min_value=int(math.floor(min_val)), max_value=int(math.ceil(max_val)), step=1, key=f"sim_{feat}")
                         else:
-                            inputs[feat] = st.number_input(label, value=float(avg_val), min_value=float(min_val), max_value=float(max_val), step=0.1, format="%.2f", key=f"sim_{feat}")
+                            inputs[feat] = st.number_input(label, value=float(avg_val), min_value=float(min_val), max_value=float(max_val), step=0.05, format="%.2f", key=f"sim_{feat}")
                 
                 # Advertencia si el rol no tiene datos
                 if len(df_m_current) == 0 and selected_role != "ALL":
@@ -843,7 +859,7 @@ if df_matches is not None:
                             s_cols = st.columns(3)
                             idx_s = 0
                             for c_name, val in match_row.items():
-                                label = FEATURE_LABELS.get(c_name, c_name)
+                                label = get_feature_label(c_name)
                                 with s_cols[idx_s % 3]:
                                     if isinstance(val, (float, np.floating)):
                                         st.write(f"**{label}:** `{val:.2f}`")
@@ -940,30 +956,166 @@ if df_matches is not None:
                 st.write(f"- **Puntaje de Visión:** {avg_stats['visionScore']:.1f}")
                 st.write(f"- **Participación en Kill:** {avg_stats['challenge_killParticipation']*100:.1f}%")
 
-    elif mode == "📊 Metajuego":
-        st.header("Metajuego & Tendencias")
-        # Visualizaciones rápidas
+    elif mode == "📊 Estadísticas Generales":
+        st.markdown("<h2 style='text-align:center;'>📊 Estadísticas Generales & Tendencias</h2>", unsafe_allow_html=True)
+        
+        # 1. Indicadores de Nivel Superior
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Partidas Analizadas", f"{len(df_matches):,}")
         c2.metric("Invocadores Únicos", f"{df_matches['jugador'].nunique():,}")
         
         # KDA Promedio global calculado
         global_kda = (df_matches['kills'].mean() + df_matches['assists'].mean()) / max(1, df_matches['deaths'].mean())
-        c3.metric("KDA Promedio", f"{global_kda:.2f}")
-        c4.metric("Winrate Global", f"{df_matches['win'].mean()*100:.1f}%")
+        c3.metric("KDA Promedio Global", f"{global_kda:.2f}")
+        c4.metric("Dureza Media (Minutos)", f"{(df_matches['timePlayed'].mean()/60):.1f} min")
         
         st.divider()
-        col_m1, col_m2 = st.columns(2)
-        with col_m1:
-            fig1 = px.box(df_matches, x='individualPosition', y='goldEarned', color='win', 
-                         title="Distribución de Oro por Posición",
-                         color_discrete_map={True: "#00f2ff", False: "#ff4b4b"})
-            st.plotly_chart(fig1, width="stretch")
-        with col_m2:
-            fig2 = px.scatter(df_matches, x='visionScore', y='totalDamageDealtToChampions', color='win', 
-                             size='kills', hover_data=['championName'],
-                             title="Visión vs Daño (Tamaño = Kills)")
-            st.plotly_chart(fig2, width="stretch")
+
+        # TABS PARA ORGANIZACIÓN PROFESIONAL
+        tab_macro, tab_roles, tab_champs = st.tabs(["🌎 Macroperspectiva", "🛡️ Dinámicas de Rol", "🧛 Élite de Campeones"])
+        
+        with tab_macro:
+            col_mac1, col_mac2 = st.columns(2)
+            
+            with col_mac1:
+                # Balance de Victoria por Lado del Mapa
+                side_stats = df_matches.groupby('side')['win'].mean().reset_index()
+                fig_side = px.pie(side_stats, values='win', names='side', hole=0.5,
+                                title="Balance de Victoria por Lado del Mapa (Lado Azul vs Rojo)",
+                                color='side', color_discrete_map={'Blue': '#00f2ff', 'Red': '#ff4b4b'})
+                fig_side.update_traces(textposition='inside', textinfo='percent+label')
+                fig_side.update_layout(template="plotly_dark", showlegend=False)
+                st.plotly_chart(fig_side, use_container_width=True)
+                
+            with col_mac2:
+                # Relación Objetivos vs Victoria
+                obj_metrics = ['challenge_teamBaronKills', 'challenge_teamElderDragonKills', 'challenge_teamRiftHeraldKills']
+                obj_labels = ["Barones", "D. Ancianos", "Heraldos"]
+                
+                avg_objs = df_matches.groupby('win')[obj_metrics].mean().reset_index()
+                
+                fig_objs = go.Figure()
+                for i, m in enumerate(obj_metrics):
+                    fig_objs.add_trace(go.Bar(
+                        name=obj_labels[i],
+                        x=['Derrota', 'Victoria'],
+                        y=avg_objs[m],
+                        marker_color="#00f2ff" if i == 0 else ("#ff4b4b" if i == 1 else "#f7ff00")
+                    ))
+                
+                fig_objs.update_layout(barmode='group', title="Importancia de Objetivos en la Victoria", template="plotly_dark")
+                st.plotly_chart(fig_objs, use_container_width=True)
+
+            # Mapa de calor de Visión vs Muerte (Agregado)
+            st.markdown("#### Distribución de Visión y Oro en las Victorias")
+            fig_heatmap = px.density_heatmap(df_matches[df_matches['win'] == True], 
+                                            x='visionScore', y='goldEarned', 
+                                            title="Densidad de Vision Score vs Oro en Partidas Ganadas",
+                                            labels={'visionScore': 'Score de Visión', 'goldEarned': 'Oro total'},
+                                            template="plotly_dark", color_continuous_scale="Viridis")
+            st.plotly_chart(fig_heatmap, use_container_width=True)
+
+        with tab_roles:
+            col_r1, col_r2 = st.columns(2)
+            
+            with col_r1:
+                # Distribución de Oro (Mejorado)
+                fig1 = px.box(df_matches, x='individualPosition', y='goldEarned', color='win', 
+                             title="Eficiencia de Oro por Posición",
+                             color_discrete_map={True: "#00f2ff", False: "#ff4b4b"},
+                             category_orders={"individualPosition": ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]},
+                             template="plotly_dark")
+                st.plotly_chart(fig1, use_container_width=True)
+            
+            with col_r2:
+                # Participación en Kills por Rol
+                avg_kp = df_matches.groupby('individualPosition')['challenge_killParticipation'].mean().reset_index()
+                fig_kp = px.bar(avg_kp, x='individualPosition', y='challenge_killParticipation',
+                               title="Impacto Directo: Participación en Muertes por Rol",
+                               labels={'challenge_killParticipation': 'Participación Media (%)'},
+                               color='challenge_killParticipation', color_continuous_scale="Tealgrn",
+                               category_orders={"individualPosition": ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]},
+                               template="plotly_dark")
+                st.plotly_chart(fig_kp, use_container_width=True)
+
+            # Scatter de Daño Recibido vs Producido
+            st.markdown("#### Perfiles de Batalla y Comunicación")
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                fig_battle = px.scatter(df_matches, x='totalDamageDealtToChampions', y='totalDamageTaken', 
+                                    color='individualPosition', size='kills',
+                                    hover_data=['championName', 'win'],
+                                    title="Daño Producido vs Daño Recibido",
+                                    labels={'totalDamageDealtToChampions': 'Daño a Campeones', 'totalDamageTaken': 'Daño Recibido'},
+                                    template="plotly_dark", opacity=0.6)
+                st.plotly_chart(fig_battle, use_container_width=True)
+            with col_b2:
+                # Pings vs Victoria
+                avg_pings = df_matches.groupby('win')['totalPings'].mean().reset_index()
+                fig_pings = px.bar(avg_pings, x='win', y='totalPings', 
+                                  title="Comunicación Media (Pings) vs Resultado",
+                                  labels={'win': 'Victoria', 'totalPings': 'Promedio de Pings'},
+                                  color='win', color_discrete_map={True: "#00f2ff", False: "#ff4b4b"},
+                                  template="plotly_dark")
+                st.plotly_chart(fig_pings, use_container_width=True)
+
+
+        with tab_champs:
+            col_c1, col_c2 = st.columns([1.5, 1])
+            
+            with col_c1:
+                # Top 15 Campeones más Pickeados y su Winrate
+                champ_stats = df_matches.groupby('championName').agg(
+                    partidas=('win', 'count'),
+                    winrate=('win', 'mean')
+                ).reset_index()
+                
+                # Filtrar campeones con al menos 10 partidas para winrate significativo
+                top_picked = champ_stats.sort_values('partidas', ascending=False).head(15)
+                top_picked['win_display'] = (top_picked['winrate'] * 100).round(1).astype(str) + "%"
+                
+                fig_champs = px.bar(top_picked, x='championName', y='partidas',
+                                   color='winrate', color_continuous_scale="RdYlGn",
+                                   title="Top 15 Campeones por Popularidad (Color = Winrate)",
+                                   text='win_display',
+                                   template="plotly_dark")
+                fig_champs.update_traces(textposition='outside')
+                st.plotly_chart(fig_champs, use_container_width=True)
+
+            with col_c2:
+                # Campeones "Best Per-Minute Performance"
+                st.markdown("#### Campeones con mayor Daño/Min")
+                top_dpm = df_matches.groupby('championName')['challenge_damagePerMinute'].mean().sort_values(ascending=False).head(10).reset_index()
+                fig_dpm = px.bar(top_dpm, y='championName', x='challenge_damagePerMinute',
+                                orientation='h', title="Top 10 DPM (Daño por Minuto)",
+                                color='challenge_damagePerMinute', color_continuous_scale="Purp",
+                                template="plotly_dark")
+                fig_dpm.update_layout(showlegend=False)
+                st.plotly_chart(fig_dpm, use_container_width=True)
+
+            # Visión de Campeones por Rol selectivo (Opcional, dinámico)
+            st.markdown("---")
+            selected_pos = st.selectbox("Analizar campeones en posición:", ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"], index=2)
+            df_pos = df_matches[df_matches['individualPosition'] == selected_pos]
+            
+            if not df_pos.empty:
+                champ_pos_stats = df_pos.groupby('championName').agg(
+                    partidas=('win', 'count'),
+                    winrate=('win', 'mean'),
+                    muertes_avg=('deaths', 'mean')
+                ).reset_index()
+                
+                # Burbujas: Partidas jugadas vs Winrate (Tamaño = Muertes Promedio)
+                fig_bubble = px.scatter(champ_pos_stats[champ_pos_stats['partidas'] >= 3], 
+                                       x='partidas', y='winrate', size='partidas',
+                                       color='winrate', hover_name='championName',
+                                       title=f"Rendimiento de Campeones como {selected_pos} (Min 3 partidas)",
+                                       labels={'partidas': 'Partidas Jugadas', 'winrate': 'Tasa de Victoria'},
+                                       template="plotly_dark", color_continuous_scale="Geyser")
+                # Línea de referencia 50% winrate
+                fig_bubble.add_hline(y=0.5, line_dash="dash", line_color="gray", annotation_text="Meta (50%)")
+                st.plotly_chart(fig_bubble, use_container_width=True)
+
 
 else:
     st.error("Error al cargar datos.")
