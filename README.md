@@ -45,8 +45,4 @@ streamlit run app.py
 6.  **Deployment**: Dashboard con simulador dinámico y perfil de invocador avanzado.
 
 ---
-**Autor:** Gabriel Marcelo Muñoz Callisaya
-**Materia:** DAT-255 | **Docente:** M. Sc. Menfy Morales Ríos
-
----
 > **Legal Disclaimer:** League Learning isn't endorsed by Riot Games or associated properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
